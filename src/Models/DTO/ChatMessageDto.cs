@@ -1,4 +1,4 @@
-﻿namespace NearbyCS_API.Models
+﻿namespace NearbyCS_API.Models.DTO
 {
     public class ChatMessageDto
     {

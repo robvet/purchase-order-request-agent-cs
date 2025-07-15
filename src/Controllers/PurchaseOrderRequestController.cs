@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using NearbyCS_API.Contracts;
 using NearbyCS_API.Models;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace NearbyCS_API.Controllers
 {
@@ -61,8 +62,8 @@ namespace NearbyCS_API.Controllers
                 // 1. Get/generate sessionId
                 string sessionId = Request.Cookies["SessionId"] ?? Guid.NewGuid().ToString();
 
-                // 2. Call agent - receive completion, history, and agent logs as a tuple
-                var (completion, history, agentLogs) = await _purchaseOrderAgent.ProcessUserRequestAsync(userInputPrompt, sessionId, _telemetryCollector);
+                // 2. Call agent - receive completion, history
+                var (completion, history) = await _purchaseOrderAgent.ProcessUserRequestAsync(userInputPrompt, sessionId, _telemetryCollector);
 
                 // 3. Set sessionId as cookie for tracking history across turns
                 Response.Cookies.Append("SessionId", sessionId, new CookieOptions { HttpOnly = true, SameSite = SameSiteMode.Lax });
@@ -71,15 +72,42 @@ namespace NearbyCS_API.Controllers
                 var toolSteps = InjectDynamicTelemetryTransformation(_telemetryCollector.GetAll().ToList());
 
                 // 5. Map ChatHistory to DTO (Data Transfer Object)
+
+                var jsonNode = JsonNode.Parse(completion);
+                var reflection = jsonNode?["reflection"]?.ToString();
+                var nextStep = jsonNode?["nextStep"]?.ToString();
+                var userPrompt = jsonNode?["userPrompt"]?.ToString();
+
                 var response = new AgentResponseDto
                 {
-                    SessionId = sessionId,
-                    Message = completion,
-                    History = ChatHistoryMappingExtensions.MapToDto(history),
-                    AgentLogs = agentLogs,
-                    Telemetry = _telemetryCollector.GetAll().ToList(),
-                    ToolSteps = toolSteps
+                    Reflection = reflection,
+                    NextStep = nextStep,
+                    UserPrompt = userPrompt,
+                    DebugInfo = new DebugInfoDto
+                    {
+                        SessionId = sessionId,
+                        History = ChatHistoryMappingExtensions.MapToDto(history),
+                        Telemetry = _telemetryCollector.GetAll().ToList(),
+                        ToolSteps = toolSteps
+                    }
                 };
+
+                //try
+                //{
+                //    var jsonNode = JsonNode.Parse(completion);
+                //    var reflection = jsonNode?["reflection"]?.ToString();
+                //    var nextStep = jsonNode?["nextStep"]?.ToString();
+                //    var userPrompt = jsonNode?["userPrompt"]?.ToString();
+
+                //    return Ok(new
+                //    {
+                //        sessionId,
+                //        reflection,
+                //        nextStep,
+                //        userPrompt,
+                //        debugInfo
+                //    });
+                //}
 
                 _logger.LogInformation("User prompt processed successfully: {Response}", response);
 
@@ -87,8 +115,8 @@ namespace NearbyCS_API.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError("Exception thrown in {Class}: {Exception}", GetType().Name, ex.Message);
-                return StatusCode(500, $"An error occurred in {GetType().Name} while processing your request: {ex.Message}");
+                _logger.LogError(ex, "ProcessPurchaseRequestAsync failed");
+                return StatusCode(500, "Internal server error. Please contact support.");
             }
         }
 

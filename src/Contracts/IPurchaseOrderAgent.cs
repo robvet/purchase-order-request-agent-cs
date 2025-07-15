@@ -5,7 +5,7 @@ namespace NearbyCS_API.Contracts
 {
     public interface IPurchaseOrderAgent
     {
-        Task<(string completion, ChatHistory History, List<string> AgentLogs)> ProcessUserRequestAsync(
+        Task<(string completion, ChatHistory History)> ProcessUserRequestAsync(
                    string userPrompt,
                    string sessionId,
                    TelemetryCollector telemetryCollector);

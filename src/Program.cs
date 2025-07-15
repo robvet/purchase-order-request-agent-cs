@@ -8,6 +8,7 @@ using NearbyCS_API.Utlls;
 using System.Diagnostics;
 using NearbyCS_API.Prompting;
 using NearbyCS_API.Contracts;
+using NearbyCS_API.Models.DTO;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -56,6 +57,8 @@ kernelBuilder.Services.AddSingleton<IFunctionInvocationFilter, TelemetryFunction
 
 kernelBuilder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 
+kernelBuilder.Services.AddScoped<IProductRepository, InMemoryProductRepository>();
+
 var kernel = kernelBuilder.Build();
 
 // Register Kernel as singleton
@@ -68,7 +71,10 @@ builder.Services.AddSingleton(kernel);
 /// Set as Scoped, which is a separate instance for each HTTP Request.
 /// Doing so, we're not sharing a single object with different values across multiple users.
 /// </Warning>
-builder.Services.AddScoped<IStateStore, SessionStateStore>();
+// Repository Pattern for State
+builder.Services.AddScoped<IStateStore, InMemorySessionStateStore>();
+// Repository Pattern for Data
+builder.Services.AddScoped<IProductRepository, InMemoryProductRepository>();
 
 
 // DEBUG: List all registered plugins and functions (Semantic Kernel 1.17.2)

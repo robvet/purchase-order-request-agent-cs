@@ -5,14 +5,14 @@ using System.Text.Json;
 
 namespace NearbyCS_API.Storage.Providers
 { 
-    public class SessionStateStore : IStateStore
+    public class InMemorySessionStateStore : IStateStore
     {
-        private readonly ILogger<SessionStateStore> _logger;
+        private readonly ILogger<InMemorySessionStateStore> _logger;
         private readonly IHttpContextAccessor _httpContextAccessor;
         
         private const string SessionKeyPrefix = "ChatHistory_";
 
-        public SessionStateStore(ILogger<SessionStateStore> logger, IHttpContextAccessor httpContextAccessor)
+        public InMemorySessionStateStore(ILogger<InMemorySessionStateStore> logger, IHttpContextAccessor httpContextAccessor)
         {
             _logger = logger;
             _httpContextAccessor = httpContextAccessor;

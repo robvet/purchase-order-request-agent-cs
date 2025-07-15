@@ -32,7 +32,7 @@ namespace NearbyCS_API.Agents // Namespace for agent classes
             };
         }
 
-        public async Task<(string completion, ChatHistory History, List<string> AgentLogs)> ProcessUserRequestAsync(
+        public async Task<(string completion, ChatHistory History)> ProcessUserRequestAsync(
             string userInputPrompt,
             string sessionId,
             TelemetryCollector telemetryCollector)
@@ -41,9 +41,7 @@ namespace NearbyCS_API.Agents // Namespace for agent classes
             {
                 _logger.LogInformation("Processing user request: {UserPrompt}", userInputPrompt); // Log the user prompt
 
-                // Get agent logs from telemetry collector
-                var agentLogs = telemetryCollector.GetAll().ToList();
-
+                
                 ////// Add entry about starting the processing
                 ////telemetryCollector.Add($"[AGENT_REQUEST] Processing user request for session: {sessionId}");
 
@@ -53,8 +51,62 @@ namespace NearbyCS_API.Agents // Namespace for agent classes
                 // Add system prompt as the first message if history is empty
                 if (chatHistory.Count == 0)
                 {
-                    // Enhance the system prompt with a reminder to use the master JSON schema
-                    var systemPrompt = $@"You are an autonomous invoice processing agent.
+                    chatHistory.AddSystemMessage(PromptTemplate.SystemPrompt());
+                }
+
+                userInputPrompt = PromptTemplate.UserPrompt().Replace("{{userInputPrompt}}", userInputPrompt);
+
+                //userInputPrompt =  userPromptTemplate.Replace("{{userInputPrompt}}", userInputPrompt);
+
+                // Add the user's message to the chat history
+                chatHistory.AddUserMessage(userInputPrompt);
+
+                // Get the chat completion service from the kernel
+                var chatService = _kernel.GetRequiredService<IChatCompletionService>();
+
+                // Set up execution settings to auto-invoke kernel functions
+                var settings = new OpenAIPromptExecutionSettings
+                {
+                    ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions,
+                    Temperature = 0.0 // Lower temperature for more deterministic responses
+                };
+
+                // Get the AI's response to the chat history
+                var result = await chatService.GetChatMessageContentAsync(
+                    chatHistory,
+                    executionSettings: settings,
+                    kernel: _kernel);
+
+                string completion = result.Content ?? ""; // Get the completion text
+
+                // Log the completion
+                telemetryCollector.Add($"[AGENT_RESPONSE] {completion}");
+
+                // Add the assistant's response to the chat history
+                chatHistory.AddAssistantMessage(completion);
+
+                // Save the updated chat history for the session
+                await _stateStore.SaveChatHistoryAsync(sessionId, chatHistory);
+
+                // Return the completion, updated history, and agent logs
+                return (completion, chatHistory);
+            }
+           
+            // Modify the catch block to return a tuple with a default ChatHistory object
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in {Class}: {ErrorMessage}", GetType().Name, ex.Message);
+
+                // Return a tuple with an error message and a new ChatHistory object
+                return ("An unexpected error occurred while processing your request: " + ex.Message, new ChatHistory());
+            }
+        }
+
+        private static class PromptTemplate
+        {
+            public static string SystemPrompt()
+            {
+                return @"You are an autonomous invoice processing agent.
 
 You are a goal-driven procurement agent responsible for managing employee purchase order requests from start to finish.
 
@@ -93,81 +145,32 @@ Each tool call will return a structured result. Reflect on the result before dec
 Do not guess or fabricate results. Stop if a step fails or requires human approval.
 
 You must reason step-by-step and decide the best next action based on current memory and the goal.
-";
+";}
 
-
-                    chatHistory.AddSystemMessage(systemPrompt);
-                }
-
-                var userPromptTemplate = $@"
+            public static string UserPrompt()
+            {
+                return @"
  new purchase order request has been submitted.
 
 Request Details:
-{userInputPrompt}
+{{userInputPrompt}}
 
-Your task is to process this request using the available tools. At each step, select and invoke the tool most appropriate for the current context, and reflect on the output before proceeding. Continue until the purchase order is ready for submission, or stop if the request is invalid, non-compliant, or requires escalation.
-";
+Your task is to process this request using the available tools. 
+At each step, select and invoke the tool most appropriate for the current context, and reflect on the output before proceeding. 
+Continue until the purchase order is ready for submission, or stop if the request is invalid, non-compliant, or requires escalation.
 
-                userInputPrompt = userPromptTemplate.Replace("{{userInputPrompt}}", userInputPrompt);
+At the end of each interaction, respond ONLY with a valid JSON object containing these fields:
 
-                // Add the user's message to the chat history
-                chatHistory.AddUserMessage(userInputPrompt);
-
-                // Get the chat completion service from the kernel
-                var chatService = _kernel.GetRequiredService<IChatCompletionService>();
-
-                // Set up execution settings to auto-invoke kernel functions
-                var settings = new OpenAIPromptExecutionSettings
-                {
-                    ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions,
-                    Temperature = 0.2 // Lower temperature for more deterministic responses
-                };
-
-                // Get the AI's response to the chat history
-                var result = await chatService.GetChatMessageContentAsync(
-                    chatHistory,
-                    executionSettings: settings,
-                    kernel: _kernel);
-
-                string completion = result.Content ?? ""; // Get the completion text
-
-                // Log the completion
-                telemetryCollector.Add($"[AGENT_RESPONSE] {completion}");
-
-                // Add the assistant's response to the chat history
-                chatHistory.AddAssistantMessage(completion);
-
-                // Save the updated chat history for the session
-                await _stateStore.SaveChatHistoryAsync(sessionId, chatHistory);
-
-                // Get the updated agent logs after processing
-                //agentLogs = telemetryCollector.GetAll().ToList();
-
-
-                var outputPromptTemplate = @"Summarize and format the completed purchase order request below into a structured JSON object suitable for ERP integration.
-
-Collected Data and Tool Outputs:
-{{AgentStateSummary}}
-
-Your response must match the following schema:
 {
-  ""requisitionId"": ""string"",
-  ""status"": ""string"",
-  ""totalCost"": number,
-  ""items"": [ { ""description"": ""string"", ""quantity"": number, ""unitCost"": number } ],
-  ""approvalChain"": [ ""string"" ],
-  ""policyViolations"": [ ""string"" ]
+  ""reflection"": ""(Briefly explain your reasoning or the result for this step.)"",
+  ""nextStep"": ""(What should the agent or user do next? E.g., ask for clarification, proceed to approval, etc.)"",
+  ""userPrompt"": ""(The exact question or instruction for the user. No extra text.)""
 }
-Return only a valid JSON object. Do not include any explanations or extra text.";
 
-                // Return the completion, updated history, and agent logs
-                return (completion, chatHistory, agentLogs);
+Do NOT include any text outside the JSON object.
+";
             }
-            catch (Exception ex)
-            {
-                _logger.LogError("Exception thrown in {Class}: {Exception}", GetType().Name, ex.Message); // Log any errors
-                throw; // Rethrow the exception
-            }
+
         }
     }
 }
