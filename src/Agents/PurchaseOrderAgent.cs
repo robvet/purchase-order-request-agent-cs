@@ -150,7 +150,7 @@ You must reason step-by-step and decide the best next action based on current me
             public static string UserPrompt()
             {
                 return @"
- new purchase order request has been submitted.
+A new purchase order request has been submitted.
 
 Request Details:
 {{userInputPrompt}}

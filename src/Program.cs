@@ -9,6 +9,7 @@ using System.Diagnostics;
 using NearbyCS_API.Prompting;
 using NearbyCS_API.Contracts;
 using NearbyCS_API.Models.DTO;
+using NearbyCS_API.Tools;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -46,6 +47,7 @@ kernelBuilder.AddAzureOpenAIChatCompletion(
 // Register tools with the kernel
 kernelBuilder.Plugins.AddFromType<ClassifyRequestTool>();
 kernelBuilder.Plugins.AddFromType<CheckPolicyComplianceTool>();
+kernelBuilder.Plugins.AddFromType<ShowQualifiedProductsTool>();
 //kernelBuilder.Plugins.AddFromType<SubmitToERPTool>();
 
 

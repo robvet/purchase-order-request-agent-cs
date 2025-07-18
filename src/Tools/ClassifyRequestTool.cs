@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.SemanticKernel;
 using NearbyCS_API.Agents;
+using NearbyCS_API.Models.DTO;
 using NearbyCS_API.Storage.Contract;
 using System;
 using System.ComponentModel;
@@ -57,9 +58,18 @@ public class ClassifyRequestTool
             var userPrompt = json?["userPrompt"]?.ToString();
             var skus = json?["skus"]?.AsArray()?.Select(s => s?.ToString()).ToList() ?? new List<string>();
 
-            // Use skus to fetch product details from your repository
-            var products = _productRepository.GetBySkus(skus);
+            List<ProductDTO> products = new List<ProductDTO>();
 
+            if (skus == null || skus.Count == 0)
+            {
+                // If no SKUs are provided, return an empty list
+                products = _productRepository.GetAll();
+            }
+            else
+            {
+                products = _productRepository.GetBySkus(skus);
+            }
+            
             // Construct your API response object
             var response = new
             {
@@ -67,6 +77,11 @@ public class ClassifyRequestTool
                 userPrompt,
                 products
             };
+
+
+            // category (unit)
+            // confidenceScore (float)
+
 
             return JsonSerializer.Serialize(response); // Or however you write JSON in your API framework
         }
