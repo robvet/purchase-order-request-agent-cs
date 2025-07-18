@@ -1,13 +1,15 @@
 ﻿using NearbyCS_API.Models.DTO;
+using System.Text.Json.Nodes;
 
 namespace NearbyCS_API.Models
 {
     public class AgentResponseDto
     {
-        public string Reflection { get; set; } = default!;
-        public string NextStep { get; set; } = default!;
-        public string UserPrompt { get; set; } = default!;
-        public DebugInfoDto DebugInfo { get; set; } = new();
+        public string? UserPrompt { get; set; }
+        public string? Reflection { get; set; }
+        public string? NextStep { get; set; }
+        public JsonNode? Products { get; set; }
+        public DebugInfoDto? DebugInfo { get; set; }
     }
 
     public class DebugInfoDto

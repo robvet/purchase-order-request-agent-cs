@@ -1,19 +1,25 @@
 using Microsoft.SemanticKernel;
 using NearbyCS_API.Agents;
+using NearbyCS_API.Contracts;
 using NearbyCS_API.Models;
+using NearbyCS_API.Models.DTO;
+using NearbyCS_API.Prompting;
 using NearbyCS_API.Storage.Contract;
 using NearbyCS_API.Storage.Providers;
 using NearbyCS_API.Telemetry;
+using NearbyCS_API.Tools;
+using NearbyCS_API.Uiltities;
 using NearbyCS_API.Utlls;
 using System.Diagnostics;
-using NearbyCS_API.Prompting;
-using NearbyCS_API.Contracts;
-using NearbyCS_API.Models.DTO;
-using NearbyCS_API.Tools;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+    });
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -78,6 +84,10 @@ builder.Services.AddScoped<IStateStore, InMemorySessionStateStore>();
 // Repository Pattern for Data
 builder.Services.AddScoped<IProductRepository, InMemoryProductRepository>();
 
+//builder.Services.AddSwaggerGen(c =>
+//{
+//    c.OperationFilter<AddShowDebugHeaderParameter>();
+//});
 
 // DEBUG: List all registered plugins and functions (Semantic Kernel 1.17.2)
 //foreach (var plugin in kernel.Plugins)

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using NearbyCS_API.Contracts;
 using NearbyCS_API.Models;
+using NearbyCS_API.Models.DTO;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -41,7 +42,8 @@ namespace NearbyCS_API.Controllers
         }
 
         [HttpPost("ProcessPurchaseRequest")]
-        public async Task<IActionResult> ProcessPurchaseRequestAsync([FromBody] string userInputPrompt)
+        public async Task<IActionResult> ProcessPurchaseRequestAsync([FromBody] string userInputPrompt,
+                                                                     [FromHeader(Name = "showdebug")] bool showDebug = false)
         {
             try
             {
@@ -74,23 +76,13 @@ namespace NearbyCS_API.Controllers
                 // 5. Map ChatHistory to DTO (Data Transfer Object)
 
                 var jsonNode = JsonNode.Parse(completion);
-                var reflection = jsonNode?["reflection"]?.ToString();
-                var nextStep = jsonNode?["nextStep"]?.ToString();
-                var userPrompt = jsonNode?["userPrompt"]?.ToString();
-
-                var response = new AgentResponseDto
-                {
-                    Reflection = reflection,
-                    NextStep = nextStep,
-                    UserPrompt = userPrompt,
-                    DebugInfo = new DebugInfoDto
-                    {
-                        SessionId = sessionId,
-                        History = ChatHistoryMappingExtensions.MapToDto(history),
-                        Telemetry = _telemetryCollector.GetAll().ToList(),
-                        ToolSteps = toolSteps
-                    }
-                };
+                var response = jsonNode.ToAgentResponseDto(
+                    sessionId,
+                    ChatHistoryMappingExtensions.MapToDto(history),
+                    _telemetryCollector.GetAll().ToList(),
+                    toolSteps,
+                    showDebug
+                );
 
                 //try
                 //{

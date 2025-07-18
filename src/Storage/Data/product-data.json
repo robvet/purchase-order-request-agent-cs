@@ -3,90 +3,442 @@
     {
       "sku": "MBP-16-M3",
       "name": "MacBook Pro 16” (M3 Pro)",
-      "description": "Apple 16-inch, M3 Pro, 32GB RAM, 1TB SSD",
-      "minPrice": 3099,
-      "maxPrice": 3499,
-      "imageUrl": "https://www.apple.com/v/macbook-pro-16/h/images/overview/hero_macbookpro__fqtk8pe4h76y_large.jpg"
+      "description": "16-inch MacBook Pro with Apple M3 Pro chip",
+      "minPrice": 2799,
+      "maxPrice": 3899,
+      "imageUrl": "https://example.com/images/mbp16-m3.jpg",
+      "baseSpecs": {
+        "ram": "16GB",
+        "storage": "512GB SSD",
+        "cpu": "M3 Pro"
+      },
+      "upgradeOptions": [
+        {
+          "type": "ram",
+          "to": "32GB",
+          "costDelta": 180
+        },
+        {
+          "type": "ram",
+          "to": "64GB",
+          "costDelta": 380
+        },
+        {
+          "type": "storage",
+          "to": "1TB SSD",
+          "costDelta": 140
+        },
+        {
+          "type": "storage",
+          "to": "2TB SSD",
+          "costDelta": 300
+        },
+        {
+          "type": "cpu",
+          "to": "M3 Max (High Performance)",
+          "costDelta": 220
+        }
+      ]
     },
     {
       "sku": "MBP-14-M3",
       "name": "MacBook Pro 14” (M3 Pro)",
-      "description": "Apple 14-inch, M3 Pro, 32GB RAM, 1TB SSD",
-      "minPrice": 2699,
+      "description": "14-inch MacBook Pro with Apple M3 Pro chip",
+      "minPrice": 1999,
       "maxPrice": 3099,
-      "imageUrl": "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/mbp14-spaceblack-gallery1-202310?wid=2000&hei=1536&fmt=jpeg&qlt=95&.v=1697312056758"
+      "imageUrl": "https://example.com/images/mbp14-m3.jpg",
+      "baseSpecs": {
+        "ram": "16GB",
+        "storage": "512GB SSD",
+        "cpu": "M3 Pro"
+      },
+      "upgradeOptions": [
+        {
+          "type": "ram",
+          "to": "32GB",
+          "costDelta": 180
+        },
+        {
+          "type": "ram",
+          "to": "64GB",
+          "costDelta": 380
+        },
+        {
+          "type": "storage",
+          "to": "1TB SSD",
+          "costDelta": 140
+        },
+        {
+          "type": "storage",
+          "to": "2TB SSD",
+          "costDelta": 300
+        },
+        {
+          "type": "cpu",
+          "to": "M3 Max (High Performance)",
+          "costDelta": 220
+        }
+      ]
     },
     {
       "sku": "DELL-LAT5440",
       "name": "Dell Latitude 5440",
-      "description": "14” i7, 32GB RAM, 1TB SSD, business laptop",
-      "minPrice": 1699,
-      "maxPrice": 2099,
-      "imageUrl": "https://i.dell.com/sites/imagecontent/products/PublishingImages/latitude-14-5440-laptop/spi/ng/laptop-latitude-14-5440-hero-500-ng.psd"
+      "description": "14-inch Dell Latitude laptop with Intel Core i7 processor",
+      "minPrice": 1450,
+      "maxPrice": 2150,
+      "imageUrl": "https://example.com/images/dell-lat5440.jpg",
+      "baseSpecs": {
+        "ram": "16GB",
+        "storage": "512GB SSD",
+        "cpu": "i7-1355U"
+      },
+      "upgradeOptions": [
+        {
+          "type": "ram",
+          "to": "32GB",
+          "costDelta": 180
+        },
+        {
+          "type": "ram",
+          "to": "64GB",
+          "costDelta": 380
+        },
+        {
+          "type": "storage",
+          "to": "1TB SSD",
+          "costDelta": 140
+        },
+        {
+          "type": "storage",
+          "to": "2TB SSD",
+          "costDelta": 300
+        },
+        {
+          "type": "cpu",
+          "to": "i7-1370P (High Performance)",
+          "costDelta": 220
+        }
+      ]
     },
     {
       "sku": "DELL-XPS13",
       "name": "Dell XPS 13",
-      "description": "13.4” UHD+, i7, 32GB RAM, 1TB SSD, touch",
-      "minPrice": 1799,
-      "maxPrice": 2299,
-      "imageUrl": "https://i.dell.com/sites/csimages/Video_Imagery/all/xps-13-9310-laptop-touch.png"
+      "description": "Premium 13.4-inch Dell XPS laptop with InfinityEdge display",
+      "minPrice": 1299,
+      "maxPrice": 1899,
+      "imageUrl": "https://example.com/images/dell-xps13.jpg",
+      "baseSpecs": {
+        "ram": "16GB",
+        "storage": "512GB SSD",
+        "cpu": "i7-1355U"
+      },
+      "upgradeOptions": [
+        {
+          "type": "ram",
+          "to": "32GB",
+          "costDelta": 180
+        },
+        {
+          "type": "ram",
+          "to": "64GB",
+          "costDelta": 380
+        },
+        {
+          "type": "storage",
+          "to": "1TB SSD",
+          "costDelta": 140
+        },
+        {
+          "type": "storage",
+          "to": "2TB SSD",
+          "costDelta": 300
+        },
+        {
+          "type": "cpu",
+          "to": "i7-1370P (High Performance)",
+          "costDelta": 220
+        }
+      ]
     },
     {
       "sku": "LEN-T14S",
       "name": "Lenovo ThinkPad T14s",
-      "description": "14” Ryzen 7, 32GB RAM, 1TB SSD, enterprise build",
-      "minPrice": 1599,
-      "maxPrice": 2099,
-      "imageUrl": "https://www.lenovo.com/medias/lenovo-laptop-thinkpad-t14s-gen-2-subseries-hero.png?context=bWFzdGVyfHJvb3R8NzA4ODR8aW1hZ2UvcG5nfGg0NS9oZmEvMTE4NzAyNTQ4NDgxNDIucG5nfDI0ZGY1NmM5YmY4NmYyZGU2YzQ2YTVlY2Y3MjRjNDI3YmJhNDI2NDQzZDFkZDdlNTIxZjI3NzU1YjM2YmIzZTc"
+      "description": "Lightweight 14-inch Lenovo ThinkPad with Intel Core i7",
+      "minPrice": 1380,
+      "maxPrice": 2100,
+      "imageUrl": "https://example.com/images/len-t14s.jpg",
+      "baseSpecs": {
+        "ram": "16GB",
+        "storage": "512GB SSD",
+        "cpu": "i7-1355U"
+      },
+      "upgradeOptions": [
+        {
+          "type": "ram",
+          "to": "32GB",
+          "costDelta": 180
+        },
+        {
+          "type": "ram",
+          "to": "64GB",
+          "costDelta": 380
+        },
+        {
+          "type": "storage",
+          "to": "1TB SSD",
+          "costDelta": 140
+        },
+        {
+          "type": "storage",
+          "to": "2TB SSD",
+          "costDelta": 300
+        },
+        {
+          "type": "cpu",
+          "to": "i7-1370P (High Performance)",
+          "costDelta": 220
+        }
+      ]
     },
     {
       "sku": "LEN-X1C10",
       "name": "Lenovo ThinkPad X1 Carbon G10",
-      "description": "14” i7, 32GB RAM, 1TB SSD, ultralight premium",
-      "minPrice": 2099,
-      "maxPrice": 2599,
-      "imageUrl": "https://www.lenovo.com/medias/lenovo-laptop-thinkpad-x1-carbon-gen-10-subseries-hero.png?context=bWFzdGVyfHJvb3R8OTczM3xpbWFnZS9wbmd8aGVmL2g3Mi8xMzM5ODc3MzM1NjA0Ni5wbmd8NjUwMGFlYmM2ZjgxYTkwYjgxOGYwNGQwNmFiZjI1MDMwNDI4MDA1ZWIwNmE2NzIzNjM4NTJlNWRjODUxZjhhYg"
+      "description": "Ultra-light 14-inch X1 Carbon Gen 10 with Intel Core i7",
+      "minPrice": 1720,
+      "maxPrice": 2499,
+      "imageUrl": "https://example.com/images/len-x1c10.jpg",
+      "baseSpecs": {
+        "ram": "16GB",
+        "storage": "512GB SSD",
+        "cpu": "i7-1355U"
+      },
+      "upgradeOptions": [
+        {
+          "type": "ram",
+          "to": "32GB",
+          "costDelta": 180
+        },
+        {
+          "type": "ram",
+          "to": "64GB",
+          "costDelta": 380
+        },
+        {
+          "type": "storage",
+          "to": "1TB SSD",
+          "costDelta": 140
+        },
+        {
+          "type": "storage",
+          "to": "2TB SSD",
+          "costDelta": 300
+        },
+        {
+          "type": "cpu",
+          "to": "i7-1370P (High Performance)",
+          "costDelta": 220
+        }
+      ]
     },
     {
       "sku": "HP-ELITE840",
       "name": "HP EliteBook 840 G10",
-      "description": "14” i5, 32GB RAM, 1TB SSD, ultrabook",
-      "minPrice": 1599,
-      "maxPrice": 1999,
-      "imageUrl": "https://ssl-product-images.www8-hp.com/digmedialib/prodimg/lowres/c06217537.png"
+      "description": "14-inch HP EliteBook with enterprise security and Intel Core i7",
+      "minPrice": 1580,
+      "maxPrice": 2399,
+      "imageUrl": "https://example.com/images/hp-elite840.jpg",
+      "baseSpecs": {
+        "ram": "16GB",
+        "storage": "512GB SSD",
+        "cpu": "i7-1355U"
+      },
+      "upgradeOptions": [
+        {
+          "type": "ram",
+          "to": "32GB",
+          "costDelta": 180
+        },
+        {
+          "type": "ram",
+          "to": "64GB",
+          "costDelta": 380
+        },
+        {
+          "type": "storage",
+          "to": "1TB SSD",
+          "costDelta": 140
+        },
+        {
+          "type": "storage",
+          "to": "2TB SSD",
+          "costDelta": 300
+        },
+        {
+          "type": "cpu",
+          "to": "i7-1370P (High Performance)",
+          "costDelta": 220
+        }
+      ]
     },
     {
       "sku": "SURF-LAP-STUDIO2",
       "name": "Surface Laptop Studio 2",
-      "description": "14.4” PixelSense touchscreen, Intel i7, 32GB RAM, 1TB SSD, NVIDIA RTX",
-      "minPrice": 2599,
-      "maxPrice": 3299,
-      "imageUrl": "https://cdn-dynmedia-1.microsoft.com/is/image/microsoftcorp/Surface-Laptop-Studio-2-1?wid=1200&hei=675&fit=crop"
+      "description": "Versatile 14.4-inch Surface Laptop Studio 2 with Intel Core i7",
+      "minPrice": 1999,
+      "maxPrice": 3199,
+      "imageUrl": "https://example.com/images/surf-lap-studio2.jpg",
+      "baseSpecs": {
+        "ram": "16GB",
+        "storage": "512GB SSD",
+        "cpu": "i7-13700H"
+      },
+      "upgradeOptions": [
+        {
+          "type": "ram",
+          "to": "32GB",
+          "costDelta": 180
+        },
+        {
+          "type": "ram",
+          "to": "64GB",
+          "costDelta": 380
+        },
+        {
+          "type": "storage",
+          "to": "1TB SSD",
+          "costDelta": 140
+        },
+        {
+          "type": "storage",
+          "to": "2TB SSD",
+          "costDelta": 300
+        },
+        {
+          "type": "cpu",
+          "to": "i9-13900H (High Performance)",
+          "costDelta": 220
+        }
+      ]
     },
     {
       "sku": "SURF-PRO9",
       "name": "Surface Pro 9 Tablet",
-      "description": "13” tablet, i7, 32GB RAM, 1TB SSD, detachable keyboard",
-      "minPrice": 1599,
+      "description": "13-inch Surface Pro 9 2-in-1 tablet with Intel Core i7",
+      "minPrice": 1399,
       "maxPrice": 1999,
-      "imageUrl": "https://cdn.mos.cms.futurecdn.net/2e8Qb9QxgvH5YgJVf4DYYn.jpg"
+      "imageUrl": "https://example.com/images/surf-pro9.jpg",
+      "baseSpecs": {
+        "ram": "16GB",
+        "storage": "512GB SSD",
+        "cpu": "i7-1255U"
+      },
+      "upgradeOptions": [
+        {
+          "type": "ram",
+          "to": "32GB",
+          "costDelta": 180
+        },
+        {
+          "type": "ram",
+          "to": "64GB",
+          "costDelta": 380
+        },
+        {
+          "type": "storage",
+          "to": "1TB SSD",
+          "costDelta": 140
+        },
+        {
+          "type": "storage",
+          "to": "2TB SSD",
+          "costDelta": 300
+        },
+        {
+          "type": "cpu",
+          "to": "i7-1265U (High Performance)",
+          "costDelta": 220
+        }
+      ]
     },
     {
       "sku": "ASUS-EXPERT",
       "name": "ASUS ExpertBook B9",
-      "description": "14” i7, 32GB RAM, 1TB SSD, long battery life",
-      "minPrice": 1699,
-      "maxPrice": 2099,
-      "imageUrl": "https://dlcdnwebimgs.asus.com/gain/2C7CA934-63E8-4CA7-BE6F-83DCD3D6FE17/w717/h525"
+      "description": "14-inch ASUS ExpertBook B9 with Intel Core i7 and ultra-light chassis",
+      "minPrice": 1520,
+      "maxPrice": 2149,
+      "imageUrl": "https://example.com/images/asus-expert.jpg",
+      "baseSpecs": {
+        "ram": "16GB",
+        "storage": "512GB SSD",
+        "cpu": "i7-1355U"
+      },
+      "upgradeOptions": [
+        {
+          "type": "ram",
+          "to": "32GB",
+          "costDelta": 180
+        },
+        {
+          "type": "ram",
+          "to": "64GB",
+          "costDelta": 380
+        },
+        {
+          "type": "storage",
+          "to": "1TB SSD",
+          "costDelta": 140
+        },
+        {
+          "type": "storage",
+          "to": "2TB SSD",
+          "costDelta": 300
+        },
+        {
+          "type": "cpu",
+          "to": "i7-1370P (High Performance)",
+          "costDelta": 220
+        }
+      ]
     },
     {
       "sku": "ACER-TMP6",
       "name": "Acer TravelMate P6",
-      "description": "14” FHD IPS, Intel i7, 32GB RAM, 1TB SSD, ultra-light business laptop",
-      "minPrice": 1599,
-      "maxPrice": 1999,
-      "imageUrl": "https://static.acer.com/up/Resource/Acer/Laptops/TravelMate_P6/Image/20240118/TravelMate_P6-2024_Series-main.png"
+      "description": "14-inch Acer TravelMate P6 with Intel Core i7 for business professionals",
+      "minPrice": 1360,
+      "maxPrice": 1980,
+      "imageUrl": "https://example.com/images/acer-tmp6.jpg",
+      "baseSpecs": {
+        "ram": "16GB",
+        "storage": "512GB SSD",
+        "cpu": "i7-1355U"
+      },
+      "upgradeOptions": [
+        {
+          "type": "ram",
+          "to": "32GB",
+          "costDelta": 180
+        },
+        {
+          "type": "ram",
+          "to": "64GB",
+          "costDelta": 380
+        },
+        {
+          "type": "storage",
+          "to": "1TB SSD",
+          "costDelta": 140
+        },
+        {
+          "type": "storage",
+          "to": "2TB SSD",
+          "costDelta": 300
+        },
+        {
+          "type": "cpu",
+          "to": "i7-1370P (High Performance)",
+          "costDelta": 220
+        }
+      ]
     }
   ]
 }

@@ -14,93 +14,227 @@ namespace NearbyCS_API.Storage.Providers
                 new ProductDTO {
                     Sku = "MBP-16-M3",
                     Name = "MacBook Pro 16” (M3 Pro)",
-                    Description = "Apple 16-inch, M3 Pro, 32GB RAM, 1TB SSD",
-                    MinPrice = 3099,
-                    MaxPrice = 3499,
-                    ImageUrl = "https://www.apple.com/v/macbook-pro-16/h/images/overview/hero_macbookpro__fqtk8pe4h76y_large.jpg"
+                    Description = "16-inch MacBook Pro with Apple M3 Pro chip",
+                    MinPrice = 2799,
+                    MaxPrice = 3899,
+                    ImageUrl = "https://example.com/images/mbp16-m3.jpg",
+                    BaseSpecs = new BaseSpecsDTO {
+                        Ram = "16GB",
+                        Storage = "512GB SSD",
+                        Cpu = "M3 Pro"
+                    },
+                    UpgradeOptions = new List<UpgradeOptionDTO> {
+                        new UpgradeOptionDTO { Type = "ram", To = "32GB", CostDelta = 180 },
+                        new UpgradeOptionDTO { Type = "ram", To = "64GB", CostDelta = 380 },
+                        new UpgradeOptionDTO { Type = "storage", To = "1TB SSD", CostDelta = 140 },
+                        new UpgradeOptionDTO { Type = "storage", To = "2TB SSD", CostDelta = 300 },
+                        new UpgradeOptionDTO { Type = "cpu", To = "M3 Max (High Performance)", CostDelta = 220 }
+                    }
                 },
                 new ProductDTO {
                     Sku = "MBP-14-M3",
                     Name = "MacBook Pro 14” (M3 Pro)",
-                    Description = "Apple 14-inch, M3 Pro, 32GB RAM, 1TB SSD",
-                    MinPrice = 2699,
+                    Description = "14-inch MacBook Pro with Apple M3 Pro chip",
+                    MinPrice = 1999,
                     MaxPrice = 3099,
-                    ImageUrl = "https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/mbp14-spaceblack-gallery1-202310?wid=2000&hei=1536&fmt=jpeg&qlt=95&.v=1697312056758"
+                    ImageUrl = "https://example.com/images/mbp14-m3.jpg",
+                    BaseSpecs = new BaseSpecsDTO {
+                        Ram = "16GB",
+                        Storage = "512GB SSD",
+                        Cpu = "M3 Pro"
+                    },
+                    UpgradeOptions = new List<UpgradeOptionDTO> {
+                        new UpgradeOptionDTO { Type = "ram", To = "32GB", CostDelta = 180 },
+                        new UpgradeOptionDTO { Type = "ram", To = "64GB", CostDelta = 380 },
+                        new UpgradeOptionDTO { Type = "storage", To = "1TB SSD", CostDelta = 140 },
+                        new UpgradeOptionDTO { Type = "storage", To = "2TB SSD", CostDelta = 300 },
+                        new UpgradeOptionDTO { Type = "cpu", To = "M3 Max (High Performance)", CostDelta = 220 }
+                    }
                 },
                 new ProductDTO {
                     Sku = "DELL-LAT5440",
                     Name = "Dell Latitude 5440",
-                    Description = "14” i7, 32GB RAM, 1TB SSD, business laptop",
-                    MinPrice = 1699,
-                    MaxPrice = 2099,
-                    ImageUrl = "https://i.dell.com/sites/imagecontent/products/PublishingImages/latitude-14-5440-laptop/spi/ng/laptop-latitude-14-5440-hero-500-ng.psd"
+                    Description = "14-inch Dell Latitude laptop with Intel Core i7 processor",
+                    MinPrice = 1450,
+                    MaxPrice = 2150,
+                    ImageUrl = "https://example.com/images/dell-lat5440.jpg",
+                    BaseSpecs = new BaseSpecsDTO {
+                        Ram = "16GB",
+                        Storage = "512GB SSD",
+                        Cpu = "i7-1355U"
+                    },
+                    UpgradeOptions = new List<UpgradeOptionDTO> {
+                        new UpgradeOptionDTO { Type = "ram", To = "32GB", CostDelta = 180 },
+                        new UpgradeOptionDTO { Type = "ram", To = "64GB", CostDelta = 380 },
+                        new UpgradeOptionDTO { Type = "storage", To = "1TB SSD", CostDelta = 140 },
+                        new UpgradeOptionDTO { Type = "storage", To = "2TB SSD", CostDelta = 300 },
+                        new UpgradeOptionDTO { Type = "cpu", To = "i7-1370P (High Performance)", CostDelta = 220 }
+                    }
                 },
                 new ProductDTO {
                     Sku = "DELL-XPS13",
                     Name = "Dell XPS 13",
-                    Description = "13.4” UHD+, i7, 32GB RAM, 1TB SSD, touch",
-                    MinPrice = 1799,
-                    MaxPrice = 2299,
-                    ImageUrl = "https://i.dell.com/sites/csimages/Video_Imagery/all/xps-13-9310-laptop-touch.png"
+                    Description = "Premium 13.4-inch Dell XPS laptop with InfinityEdge display",
+                    MinPrice = 1299,
+                    MaxPrice = 1899,
+                    ImageUrl = "https://example.com/images/dell-xps13.jpg",
+                    BaseSpecs = new BaseSpecsDTO {
+                        Ram = "16GB",
+                        Storage = "512GB SSD",
+                        Cpu = "i7-1355U"
+                    },
+                    UpgradeOptions = new List<UpgradeOptionDTO> {
+                        new UpgradeOptionDTO { Type = "ram", To = "32GB", CostDelta = 180 },
+                        new UpgradeOptionDTO { Type = "ram", To = "64GB", CostDelta = 380 },
+                        new UpgradeOptionDTO { Type = "storage", To = "1TB SSD", CostDelta = 140 },
+                        new UpgradeOptionDTO { Type = "storage", To = "2TB SSD", CostDelta = 300 },
+                        new UpgradeOptionDTO { Type = "cpu", To = "i7-1370P (High Performance)", CostDelta = 220 }
+                    }
                 },
                 new ProductDTO {
                     Sku = "LEN-T14S",
                     Name = "Lenovo ThinkPad T14s",
-                    Description = "14” Ryzen 7, 32GB RAM, 1TB SSD, enterprise build",
-                    MinPrice = 1599,
-                    MaxPrice = 2099,
-                    ImageUrl = "https://www.lenovo.com/medias/lenovo-laptop-thinkpad-t14s-gen-2-subseries-hero.png?context=bWFzdGVyfHJvb3R8NzA4ODR8aW1hZ2UvcG5nfGg0NS9oZmEvMTE4NzAyNTQ4NDgxNDIucG5nfDI0ZGY1NmM5YmY4NmYyZGU2YzQ2YTVlY2Y3MjRjNDI3YmJhNDI2NDQzZDFkZDdlNTIxZjI3NzU1YjM2YmIzZTc"
+                    Description = "Lightweight 14-inch Lenovo ThinkPad with Intel Core i7",
+                    MinPrice = 1380,
+                    MaxPrice = 2100,
+                    ImageUrl = "https://example.com/images/len-t14s.jpg",
+                    BaseSpecs = new BaseSpecsDTO {
+                        Ram = "16GB",
+                        Storage = "512GB SSD",
+                        Cpu = "i7-1355U"
+                    },
+                    UpgradeOptions = new List<UpgradeOptionDTO> {
+                        new UpgradeOptionDTO { Type = "ram", To = "32GB", CostDelta = 180 },
+                        new UpgradeOptionDTO { Type = "ram", To = "64GB", CostDelta = 380 },
+                        new UpgradeOptionDTO { Type = "storage", To = "1TB SSD", CostDelta = 140 },
+                        new UpgradeOptionDTO { Type = "storage", To = "2TB SSD", CostDelta = 300 },
+                        new UpgradeOptionDTO { Type = "cpu", To = "i7-1370P (High Performance)", CostDelta = 220 }
+                    }
                 },
                 new ProductDTO {
                     Sku = "LEN-X1C10",
                     Name = "Lenovo ThinkPad X1 Carbon G10",
-                    Description = "14” i7, 32GB RAM, 1TB SSD, ultralight premium",
-                    MinPrice = 2099,
-                    MaxPrice = 2599,
-                    ImageUrl = "https://www.lenovo.com/medias/lenovo-laptop-thinkpad-x1-carbon-gen-10-subseries-hero.png?context=bWFzdGVyfHJvb3R8OTczM3xpbWFnZS9wbmd8aGVmL2g3Mi8xMzM5ODc3MzM1NjA0Ni5wbmd8NjUwMGFlYmM2ZjgxYTkwYjgxOGYwNGQwNmFiZjI1MDMwNDI4MDA1ZWIwNmE2NzIzNjM4NTJlNWRjODUxZjhhYg"
+                    Description = "Ultra-light 14-inch X1 Carbon Gen 10 with Intel Core i7",
+                    MinPrice = 1720,
+                    MaxPrice = 2499,
+                    ImageUrl = "https://example.com/images/len-x1c10.jpg",
+                    BaseSpecs = new BaseSpecsDTO {
+                        Ram = "16GB",
+                        Storage = "512GB SSD",
+                        Cpu = "i7-1355U"
+                    },
+                    UpgradeOptions = new List<UpgradeOptionDTO> {
+                        new UpgradeOptionDTO { Type = "ram", To = "32GB", CostDelta = 180 },
+                        new UpgradeOptionDTO { Type = "ram", To = "64GB", CostDelta = 380 },
+                        new UpgradeOptionDTO { Type = "storage", To = "1TB SSD", CostDelta = 140 },
+                        new UpgradeOptionDTO { Type = "storage", To = "2TB SSD", CostDelta = 300 },
+                        new UpgradeOptionDTO { Type = "cpu", To = "i7-1370P (High Performance)", CostDelta = 220 }
+                    }
                 },
                 new ProductDTO {
                     Sku = "HP-ELITE840",
                     Name = "HP EliteBook 840 G10",
-                    Description = "14” i5, 32GB RAM, 1TB SSD, ultrabook",
-                    MinPrice = 1599,
-                    MaxPrice = 1999,
-                    ImageUrl = "https://ssl-product-images.www8-hp.com/digmedialib/prodimg/lowres/c06217537.png"
+                    Description = "14-inch HP EliteBook with enterprise security and Intel Core i7",
+                    MinPrice = 1580,
+                    MaxPrice = 2399,
+                    ImageUrl = "https://example.com/images/hp-elite840.jpg",
+                    BaseSpecs = new BaseSpecsDTO {
+                        Ram = "16GB",
+                        Storage = "512GB SSD",
+                        Cpu = "i7-1355U"
+                    },
+                    UpgradeOptions = new List<UpgradeOptionDTO> {
+                        new UpgradeOptionDTO { Type = "ram", To = "32GB", CostDelta = 180 },
+                        new UpgradeOptionDTO { Type = "ram", To = "64GB", CostDelta = 380 },
+                        new UpgradeOptionDTO { Type = "storage", To = "1TB SSD", CostDelta = 140 },
+                        new UpgradeOptionDTO { Type = "storage", To = "2TB SSD", CostDelta = 300 },
+                        new UpgradeOptionDTO { Type = "cpu", To = "i7-1370P (High Performance)", CostDelta = 220 }
+                    }
                 },
                 new ProductDTO {
                     Sku = "SURF-LAP-STUDIO2",
                     Name = "Surface Laptop Studio 2",
-                    Description = "14.4” PixelSense touchscreen, Intel i7, 32GB RAM, 1TB SSD, NVIDIA RTX",
-                    MinPrice = 2599,
-                    MaxPrice = 3299,
-                    ImageUrl = "https://cdn-dynmedia-1.microsoft.com/is/image/microsoftcorp/Surface-Laptop-Studio-2-1?wid=1200&hei=675&fit=crop"
+                    Description = "Versatile 14.4-inch Surface Laptop Studio 2 with Intel Core i7",
+                    MinPrice = 1999,
+                    MaxPrice = 3199,
+                    ImageUrl = "https://example.com/images/surf-lap-studio2.jpg",
+                    BaseSpecs = new BaseSpecsDTO {
+                        Ram = "16GB",
+                        Storage = "512GB SSD",
+                        Cpu = "i7-13700H"
+                    },
+                    UpgradeOptions = new List<UpgradeOptionDTO> {
+                        new UpgradeOptionDTO { Type = "ram", To = "32GB", CostDelta = 180 },
+                        new UpgradeOptionDTO { Type = "ram", To = "64GB", CostDelta = 380 },
+                        new UpgradeOptionDTO { Type = "storage", To = "1TB SSD", CostDelta = 140 },
+                        new UpgradeOptionDTO { Type = "storage", To = "2TB SSD", CostDelta = 300 },
+                        new UpgradeOptionDTO { Type = "cpu", To = "i9-13900H (High Performance)", CostDelta = 220 }
+                    }
                 },
                 new ProductDTO {
                     Sku = "SURF-PRO9",
                     Name = "Surface Pro 9 Tablet",
-                    Description = "13” tablet, i7, 32GB RAM, 1TB SSD, detachable keyboard",
-                    MinPrice = 1599,
+                    Description = "13-inch Surface Pro 9 2-in-1 tablet with Intel Core i7",
+                    MinPrice = 1399,
                     MaxPrice = 1999,
-                    ImageUrl = "https://cdn.mos.cms.futurecdn.net/2e8Qb9QxgvH5YgJVf4DYYn.jpg"
+                    ImageUrl = "https://example.com/images/surf-pro9.jpg",
+                    BaseSpecs = new BaseSpecsDTO {
+                        Ram = "16GB",
+                        Storage = "512GB SSD",
+                        Cpu = "i7-1255U"
+                    },
+                    UpgradeOptions = new List<UpgradeOptionDTO> {
+                        new UpgradeOptionDTO { Type = "ram", To = "32GB", CostDelta = 180 },
+                        new UpgradeOptionDTO { Type = "ram", To = "64GB", CostDelta = 380 },
+                        new UpgradeOptionDTO { Type = "storage", To = "1TB SSD", CostDelta = 140 },
+                        new UpgradeOptionDTO { Type = "storage", To = "2TB SSD", CostDelta = 300 },
+                        new UpgradeOptionDTO { Type = "cpu", To = "i7-1265U (High Performance)", CostDelta = 220 }
+                    }
                 },
                 new ProductDTO {
                     Sku = "ASUS-EXPERT",
                     Name = "ASUS ExpertBook B9",
-                    Description = "14” i7, 32GB RAM, 1TB SSD, long battery life",
-                    MinPrice = 1699,
-                    MaxPrice = 2099,
-                    ImageUrl = "https://dlcdnwebimgs.asus.com/gain/2C7CA934-63E8-4CA7-BE6F-83DCD3D6FE17/w717/h525"
+                    Description = "14-inch ASUS ExpertBook B9 with Intel Core i7 and ultra-light chassis",
+                    MinPrice = 1520,
+                    MaxPrice = 2149,
+                    ImageUrl = "https://example.com/images/asus-expert.jpg",
+                    BaseSpecs = new BaseSpecsDTO {
+                        Ram = "16GB",
+                        Storage = "512GB SSD",
+                        Cpu = "i7-1355U"
+                    },
+                    UpgradeOptions = new List<UpgradeOptionDTO> {
+                        new UpgradeOptionDTO { Type = "ram", To = "32GB", CostDelta = 180 },
+                        new UpgradeOptionDTO { Type = "ram", To = "64GB", CostDelta = 380 },
+                        new UpgradeOptionDTO { Type = "storage", To = "1TB SSD", CostDelta = 140 },
+                        new UpgradeOptionDTO { Type = "storage", To = "2TB SSD", CostDelta = 300 },
+                        new UpgradeOptionDTO { Type = "cpu", To = "i7-1370P (High Performance)", CostDelta = 220 }
+                    }
                 },
                 new ProductDTO {
                     Sku = "ACER-TMP6",
                     Name = "Acer TravelMate P6",
-                    Description = "14” FHD IPS, Intel i7, 32GB RAM, 1TB SSD, ultra-light business laptop",
-                    MinPrice = 1599,
-                    MaxPrice = 1999,
-                    ImageUrl = "https://static.acer.com/up/Resource/Acer/Laptops/TravelMate_P6/Image/20240118/TravelMate_P6-2024_Series-main.png"
+                    Description = "14-inch Acer TravelMate P6 with Intel Core i7 for business professionals",
+                    MinPrice = 1360,
+                    MaxPrice = 1980,
+                    ImageUrl = "https://example.com/images/acer-tmp6.jpg",
+                    BaseSpecs = new BaseSpecsDTO {
+                        Ram = "16GB",
+                        Storage = "512GB SSD",
+                        Cpu = "i7-1355U"
+                    },
+                    UpgradeOptions = new List<UpgradeOptionDTO> {
+                        new UpgradeOptionDTO { Type = "ram", To = "32GB", CostDelta = 180 },
+                        new UpgradeOptionDTO { Type = "ram", To = "64GB", CostDelta = 380 },
+                        new UpgradeOptionDTO { Type = "storage", To = "1TB SSD", CostDelta = 140 },
+                        new UpgradeOptionDTO { Type = "storage", To = "2TB SSD", CostDelta = 300 },
+                        new UpgradeOptionDTO { Type = "cpu", To = "i7-1370P (High Performance)", CostDelta = 220 }
+                    }
                 }
             };
         }
+
+ 
 
         public ProductDTO GetBySku(string sku) =>
             _products.FirstOrDefault(p => string.Equals(p.Sku, sku, StringComparison.OrdinalIgnoreCase));
