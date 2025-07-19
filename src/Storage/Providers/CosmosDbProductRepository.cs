@@ -7,22 +7,28 @@ namespace NearbyCS_API.Storage.Providers
     {
         // Inject Cosmos client, connection, etc.
 
-        public ProductDTO GetBySku(string sku)
+        public Task<ProductDTO?> GetBySku(string sku)
         {
             // Query Cosmos DB for single SKU
             return null;
         }
 
-        public List<ProductDTO> GetBySkus(IEnumerable<string> skus)
+        public Task<List<ProductDTO>> GetBySkus(IEnumerable<string> skus)
         {
             // Query Cosmos DB for multiple SKUs
-            return null;
+            return Task.FromResult(new List<ProductDTO>());
         }
 
-        public List<ProductDTO> GetAll()
+        public Task<List<ProductDTO>> GetAllProductsSummaryViewAsync()
         {
             // Query Cosmos DB for all products
-            return null;
+            return Task.FromResult(new List<ProductDTO>());
+        }
+
+        public Task<List<ProductDTO>> GetAlternativeProductsAsync()
+        {
+            // Query Cosmos DB for all products
+            return Task.FromResult(new List<ProductDTO>());
         }
     }
 }

@@ -4,8 +4,9 @@ namespace NearbyCS_API.Storage.Contract
 {
     public interface IProductRepository
     {
-        ProductDTO GetBySku(string sku);
-        List<ProductDTO> GetBySkus(IEnumerable<string> skus);
-        List<ProductDTO> GetAll();
+        Task<ProductDTO?> GetBySku(string sku);
+        Task<List<ProductDTO>> GetBySkus(IEnumerable<string> skus);
+        Task<List<ProductDTO>> GetAllProductsSummaryViewAsync();
+        Task<List<ProductDTO>> GetAlternativeProductsAsync();
     }
 }

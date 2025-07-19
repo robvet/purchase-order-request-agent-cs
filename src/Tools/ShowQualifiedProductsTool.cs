@@ -9,10 +9,10 @@ namespace NearbyCS_API.Tools
 {
     public class ShowQualifiedProductsTool
     {
-        private readonly ILogger<PurchaseOrderAgent> _logger; // Logger for this agent
+        private readonly ILogger<ShowQualifiedProductsTool> _logger; // Logger for this agent
         private readonly IProductRepository _productRepository;
 
-        public ShowQualifiedProductsTool(ILogger<PurchaseOrderAgent> logger, IProductRepository productRepository)
+        public ShowQualifiedProductsTool(ILogger<ShowQualifiedProductsTool> logger, IProductRepository productRepository)
         {
             _logger = logger;
             _productRepository = productRepository;
@@ -23,7 +23,7 @@ namespace NearbyCS_API.Tools
         public async Task<string> ShowAllQualifiedProductsAsync()
         {
             _logger.LogInformation("Processing request to show all qualified products");
-            var products = _productRepository.GetAll();
+            var products = await _productRepository.GetAllProductsSummaryViewAsync();
             if (products == null || !products.Any())
             {
                 _logger.LogWarning("No products found in repository.");

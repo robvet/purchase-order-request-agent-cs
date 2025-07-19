@@ -5,6 +5,7 @@ using NearbyCS_API.Contracts;
 using NearbyCS_API.Models;
 // State store interface
 using NearbyCS_API.Storage.Contract;
+using System.Security.Principal;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -127,13 +128,9 @@ Your goal is to ensure that every request:
 You may use the following tools:
 
 1. ClassifyRequest – Identify the category or type of need (e.g., equipment, software, travel)
-2. CheckBudget – Verify available funds for the request
-3. SuggestVendors – Recommend preferred vendors based on category and sourcing rules
-4. BuildRequisition – Construct the full requisition object using validated details
-5. SubmitForApproval – Route the requisition for required approval if thresholds are exceeded
-6. CheckPolicyCompliance – Review the request against all applicable procurement policies
-7. SuggestAlternatives – Recommend lower-cost or faster-available options if appropriate
-8. CheckInventoryOrTransfer – Determine if existing assets can satisfy the request
+2. CheckPolicyCompliance – Review the request against all applicable procurement policies
+3. SuggestAlternatives – Recommend lower-cost or faster-available options if appropriate
+4. CheckInventoryOrTransfer – Determine if existing assets can satisfy the request
 
 Use tools one at a time. Only proceed when the previous result is valid and compliant.
 
@@ -180,3 +177,14 @@ Do NOT include any text outside the JSON object.
         }
     }
 }
+
+
+
+//1.ClassifyRequest – Identify the category or type of need (e.g., equipment, software, travel)
+////2. CheckBudget – Verify available funds for the request
+////3. SuggestVendors – Recommend preferred vendors based on category and sourcing rules
+////4. BuildRequisition – Construct the full requisition object using validated details
+////5. SubmitForApproval – Route the requisition for required approval if thresholds are exceeded
+//6. CheckPolicyCompliance – Review the request against all applicable procurement policies
+//7. SuggestAlternatives – Recommend lower-cost or faster-available options if appropriate
+//8. CheckInventoryOrTransfer – Determine if existing assets can satisfy the request

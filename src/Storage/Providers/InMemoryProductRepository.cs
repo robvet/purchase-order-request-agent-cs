@@ -15,9 +15,9 @@ namespace NearbyCS_API.Storage.Providers
                     Sku = "MBP-16-M3",
                     Name = "MacBook Pro 16” (M3 Pro)",
                     Description = "16-inch MacBook Pro with Apple M3 Pro chip",
-                    MinPrice = 2799,
-                    MaxPrice = 3899,
+                    Cost = (2799 + 3899) / 2m,
                     ImageUrl = "https://example.com/images/mbp16-m3.jpg",
+                    IsAvailable = true,
                     BaseSpecs = new BaseSpecsDTO {
                         Ram = "16GB",
                         Storage = "512GB SSD",
@@ -35,9 +35,9 @@ namespace NearbyCS_API.Storage.Providers
                     Sku = "MBP-14-M3",
                     Name = "MacBook Pro 14” (M3 Pro)",
                     Description = "14-inch MacBook Pro with Apple M3 Pro chip",
-                    MinPrice = 1999,
-                    MaxPrice = 3099,
+                    Cost = (1999 + 3099) / 2m,
                     ImageUrl = "https://example.com/images/mbp14-m3.jpg",
+                    IsAvailable = true,
                     BaseSpecs = new BaseSpecsDTO {
                         Ram = "16GB",
                         Storage = "512GB SSD",
@@ -55,9 +55,9 @@ namespace NearbyCS_API.Storage.Providers
                     Sku = "DELL-LAT5440",
                     Name = "Dell Latitude 5440",
                     Description = "14-inch Dell Latitude laptop with Intel Core i7 processor",
-                    MinPrice = 1450,
-                    MaxPrice = 2150,
+                    Cost = (1450 + 2150) / 2m,
                     ImageUrl = "https://example.com/images/dell-lat5440.jpg",
+                    IsAvailable = true,
                     BaseSpecs = new BaseSpecsDTO {
                         Ram = "16GB",
                         Storage = "512GB SSD",
@@ -75,9 +75,9 @@ namespace NearbyCS_API.Storage.Providers
                     Sku = "DELL-XPS13",
                     Name = "Dell XPS 13",
                     Description = "Premium 13.4-inch Dell XPS laptop with InfinityEdge display",
-                    MinPrice = 1299,
-                    MaxPrice = 1899,
+                    Cost = (1299 + 1899) / 2m,
                     ImageUrl = "https://example.com/images/dell-xps13.jpg",
+                    IsAvailable = true,
                     BaseSpecs = new BaseSpecsDTO {
                         Ram = "16GB",
                         Storage = "512GB SSD",
@@ -95,9 +95,9 @@ namespace NearbyCS_API.Storage.Providers
                     Sku = "LEN-T14S",
                     Name = "Lenovo ThinkPad T14s",
                     Description = "Lightweight 14-inch Lenovo ThinkPad with Intel Core i7",
-                    MinPrice = 1380,
-                    MaxPrice = 2100,
+                    Cost = (1380 + 2100) / 2m,
                     ImageUrl = "https://example.com/images/len-t14s.jpg",
+                    IsAvailable = true,
                     BaseSpecs = new BaseSpecsDTO {
                         Ram = "16GB",
                         Storage = "512GB SSD",
@@ -115,9 +115,9 @@ namespace NearbyCS_API.Storage.Providers
                     Sku = "LEN-X1C10",
                     Name = "Lenovo ThinkPad X1 Carbon G10",
                     Description = "Ultra-light 14-inch X1 Carbon Gen 10 with Intel Core i7",
-                    MinPrice = 1720,
-                    MaxPrice = 2499,
+                    Cost = (1720 + 2499) / 2m,
                     ImageUrl = "https://example.com/images/len-x1c10.jpg",
+                    IsAvailable = true,
                     BaseSpecs = new BaseSpecsDTO {
                         Ram = "16GB",
                         Storage = "512GB SSD",
@@ -135,9 +135,9 @@ namespace NearbyCS_API.Storage.Providers
                     Sku = "HP-ELITE840",
                     Name = "HP EliteBook 840 G10",
                     Description = "14-inch HP EliteBook with enterprise security and Intel Core i7",
-                    MinPrice = 1580,
-                    MaxPrice = 2399,
+                    Cost = (1580 + 2399) / 2m,
                     ImageUrl = "https://example.com/images/hp-elite840.jpg",
+                    IsAvailable = true,
                     BaseSpecs = new BaseSpecsDTO {
                         Ram = "16GB",
                         Storage = "512GB SSD",
@@ -155,9 +155,9 @@ namespace NearbyCS_API.Storage.Providers
                     Sku = "SURF-LAP-STUDIO2",
                     Name = "Surface Laptop Studio 2",
                     Description = "Versatile 14.4-inch Surface Laptop Studio 2 with Intel Core i7",
-                    MinPrice = 1999,
-                    MaxPrice = 3199,
+                    Cost = (1999 + 3199) / 2m,
                     ImageUrl = "https://example.com/images/surf-lap-studio2.jpg",
+                    IsAvailable = true,
                     BaseSpecs = new BaseSpecsDTO {
                         Ram = "16GB",
                         Storage = "512GB SSD",
@@ -175,9 +175,9 @@ namespace NearbyCS_API.Storage.Providers
                     Sku = "SURF-PRO9",
                     Name = "Surface Pro 9 Tablet",
                     Description = "13-inch Surface Pro 9 2-in-1 tablet with Intel Core i7",
-                    MinPrice = 1399,
-                    MaxPrice = 1999,
+                    Cost = (1399 + 1999) / 2m,
                     ImageUrl = "https://example.com/images/surf-pro9.jpg",
+                    IsAvailable = true,
                     BaseSpecs = new BaseSpecsDTO {
                         Ram = "16GB",
                         Storage = "512GB SSD",
@@ -193,11 +193,12 @@ namespace NearbyCS_API.Storage.Providers
                 },
                 new ProductDTO {
                     Sku = "ASUS-EXPERT",
+
                     Name = "ASUS ExpertBook B9",
                     Description = "14-inch ASUS ExpertBook B9 with Intel Core i7 and ultra-light chassis",
-                    MinPrice = 1520,
-                    MaxPrice = 2149,
+                    Cost = (1520 + 2149) / 2m,
                     ImageUrl = "https://example.com/images/asus-expert.jpg",
+                    IsAvailable = false,
                     BaseSpecs = new BaseSpecsDTO {
                         Ram = "16GB",
                         Storage = "512GB SSD",
@@ -215,9 +216,9 @@ namespace NearbyCS_API.Storage.Providers
                     Sku = "ACER-TMP6",
                     Name = "Acer TravelMate P6",
                     Description = "14-inch Acer TravelMate P6 with Intel Core i7 for business professionals",
-                    MinPrice = 1360,
-                    MaxPrice = 1980,
+                    Cost = (1360 + 1980) / 2m,
                     ImageUrl = "https://example.com/images/acer-tmp6.jpg",
+                    IsAvailable = true,
                     BaseSpecs = new BaseSpecsDTO {
                         Ram = "16GB",
                         Storage = "512GB SSD",
@@ -234,14 +235,45 @@ namespace NearbyCS_API.Storage.Providers
             };
         }
 
- 
+        public Task<ProductDTO?> GetBySku(string sku) =>
+            Task.FromResult(_products.Where(p => string.Equals(p.Sku, sku, StringComparison.OrdinalIgnoreCase))
+            .Select(p => new ProductDTO
+            {
+                Sku = p.Sku,
+                Name = p.Name,
+                Description = p.Description,
+                Cost = p.Cost,
+                ImageUrl = p.ImageUrl
+            }).FirstOrDefault());
 
-        public ProductDTO GetBySku(string sku) =>
-            _products.FirstOrDefault(p => string.Equals(p.Sku, sku, StringComparison.OrdinalIgnoreCase));
+        public Task<List<ProductDTO>> GetBySkus(IEnumerable<string> skus) =>
+            Task.FromResult(_products.Where(p => skus.Contains(p.Sku, StringComparer.OrdinalIgnoreCase))
+            .Select(p => new ProductDTO
+            {
+                Sku = p.Sku,
+                Name = p.Name,
+                Description = p.Description,
+                Cost = p.Cost
+            }).ToList());
 
-        public List<ProductDTO> GetBySkus(IEnumerable<string> skus) =>
-            _products.Where(p => skus.Contains(p.Sku, StringComparer.OrdinalIgnoreCase)).ToList();
+        public Task<List<ProductDTO>> GetAllProductsSummaryViewAsync() => 
+            Task.FromResult(_products.Select(p => new ProductDTO
+        {
+            Sku = p.Sku,
+            Name = p.Name,
+            Description = p.Description,
+            Cost = p.Cost
+        }).ToList());
 
-        public List<ProductDTO> GetAll() => _products.ToList();
+        public Task<List<ProductDTO>> GetAlternativeProductsAsync() =>
+           Task.FromResult(_products.Select(p => new ProductDTO
+           {
+               Sku = p.Sku,
+               Name = p.Name,
+               Description = p.Description,
+               Cost = p.Cost,
+               BaseSpecs = p.BaseSpecs,
+           }).Where(p => p.IsAvailable)
+           .ToList());
     }
 }

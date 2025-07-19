@@ -54,6 +54,7 @@ kernelBuilder.AddAzureOpenAIChatCompletion(
 kernelBuilder.Plugins.AddFromType<ClassifyRequestTool>();
 kernelBuilder.Plugins.AddFromType<CheckPolicyComplianceTool>();
 kernelBuilder.Plugins.AddFromType<ShowQualifiedProductsTool>();
+kernelBuilder.Plugins.AddFromType<SuggestAlternativesTool>();
 //kernelBuilder.Plugins.AddFromType<SubmitToERPTool>();
 
 

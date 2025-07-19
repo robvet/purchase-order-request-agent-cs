@@ -63,11 +63,11 @@ public class ClassifyRequestTool
             if (skus == null || skus.Count == 0)
             {
                 // If no SKUs are provided, return an empty list
-                products = _productRepository.GetAll();
+                products = await _productRepository.GetAllProductsSummaryViewAsync();
             }
             else
             {
-                products = _productRepository.GetBySkus(skus);
+                products = await _productRepository.GetBySkus(skus);
             }
             
             // Construct your API response object
