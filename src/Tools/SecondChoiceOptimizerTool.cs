@@ -8,14 +8,14 @@ using System.Text.Json.Nodes;
 
 namespace NearbyCS_API.Tools
 {
-    public class SuggestAlternativesTool
+    public class SecondChoiceOptimizerTool
     {
         private readonly ILogger<PurchaseOrderAgent> _logger; // Logger for this agent
         private readonly IProductRepository _productRepository;
 
         public string Name => "SuggestAlternativesTool";
 
-        public SuggestAlternativesTool(ILogger<PurchaseOrderAgent> logger, IProductRepository productRepository)
+        public SecondChoiceOptimizerTool(ILogger<PurchaseOrderAgent> logger, IProductRepository productRepository)
         {
             _logger = logger;
             _productRepository = productRepository;
