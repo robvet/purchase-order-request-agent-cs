@@ -18,13 +18,13 @@ using static System.Net.Mime.MediaTypeNames;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 [Description("Determines the category of a user's purchase request (e.g., hardware, software, services) using a language model.")]
-public class ClassifyRequestTool
+public class ExtractOrderDetailsTool
 {
-    public string Name => "ClassifyRequest";
-    private readonly ILogger<PurchaseOrderAgent> _logger; // Logger for this agent
+    public string Name => "ExtractOrderDetailsTool";
+    private readonly ILogger<ExtractOrderDetailsTool> _logger; // Logger for this agent
     private readonly IProductRepository _productRepository;
 
-    public ClassifyRequestTool(ILogger<PurchaseOrderAgent> logger, IProductRepository productRepository)
+    public ExtractOrderDetailsTool(ILogger<ExtractOrderDetailsTool> logger, IProductRepository productRepository)
     {
         _logger = logger;
         _productRepository = productRepository;
@@ -32,58 +32,85 @@ public class ClassifyRequestTool
 
     [KernelFunction]
     [Description("Returns the category and confidence score for a user’s purchase-related request in JSON format.")]
-    public async Task<string> ClassifyRequestAsync(
+    public async Task<string> ExtractOrderDetailsAsync(
         Kernel kernel,
-        [Description("Natural language text describing what the user wants to purchase.")] string requestText)
+        [Description("Natural language text describing what the user wants to purchase.")] string userRequest,
+        [Description("Natural language text describing what the user wants to purchase.")] string intent)
     {
-        _logger.LogInformation("Processing user request in ClassifyRequestTool: {UserPrompt}", requestText); // Log the user prompt
-
-        var toolPrompt = PromptTemplate.ClassifyRequestPromptTempate(requestText).Replace("{{requestText}}", requestText);
-
-        // Call the kernel to get the model's response
-        var result = await kernel.InvokePromptAsync(toolPrompt, new() {
-            { "requestText", requestText }
-        });
-
-        _logger.LogInformation("Output from ClassifyRequestTool: {Output}", result.ToString());
-
-        // The model's response should be a JSON object with one of the following schemas:        
-
-        // Parse and enrich ambiguous response
-        string rawJson = result.ToString();
-        try
+        try 
         {
+            _logger.LogInformation("Processing user request in ClassifyRequestTool: {userRequest}", userRequest); // Log the user prompt
+
+            if (intent != "RequestPurchase")
+                throw new InvalidOperationException("ExtractOrderDetailsTool called for non-purchase intent!");
+
+            var toolPrompt = PromptTemplate.ClassifyRequestPromptTempate(userRequest).Replace("{{userRequest}}", userRequest);
+
+            // Call the kernel to get the model's response
+            var result = await kernel.InvokePromptAsync(toolPrompt, new() {
+                { "userRequest", userRequest }
+            });
+
+            _logger.LogInformation("Output from ClassifyRequestTool: {Output}", result.ToString());
+
+            // The model's response should be a JSON object with one of the following schemas:        
+
+            // Parse and enrich ambiguous response
+            string rawJson = result.ToString();
+            //try
+            //{
+            //    var json = JsonNode.Parse(rawJson);
+            //    var status = json?["status"]?.ToString();
+            //    var userPrompt = json?["userPrompt"]?.ToString();
+            //    var skus = json?["skus"]?.AsArray()?.Select(s => s?.ToString()).ToList() ?? new List<string>();
+
+            //    List<ProductDTO> products = new List<ProductDTO>();
+
+            //    if (skus == null || skus.Count == 0)
+            //    {
+            //        // If no SKUs are provided, return an empty list
+            //        products = await _productRepository.GetAllProductsSummaryViewAsync();
+            //    }
+            //    else
+            //    {
+            //        products = await _productRepository.GetBySkus(skus);
+            //    }
+
+            //    // Construct your API response object
+            //    var response = new
+            //    {
+            //        status,
+            //        userPrompt,
+            //        products
+            //    };
+
+
+            //    // category (unit)
+            //    // confidenceScore (float)
+            // Parse the model's response
             var json = JsonNode.Parse(rawJson);
-            var status = json?["status"]?.ToString();
-            var userPrompt = json?["userPrompt"]?.ToString();
-            var skus = json?["skus"]?.AsArray()?.Select(s => s?.ToString()).ToList() ?? new List<string>();
-
-            List<ProductDTO> products = new List<ProductDTO>();
-
-            if (skus == null || skus.Count == 0)
-            {
-                // If no SKUs are provided, return an empty list
-                products = await _productRepository.GetAllProductsSummaryViewAsync();
-            }
-            else
-            {
-                products = await _productRepository.GetBySkus(skus);
-            }
+            var model = json?["model"]; //?.AsArray()?.Select(s => s?.ToString()).ToList() ?? new List<string>();
+            var status = json?["status"];
+            var quantity = json?["quantity"];
+            var department = json?["department"];
+            var confidence = json?["confidence"]?.GetValue<double>() ?? 0.0;
             
-            // Construct your API response object
+                        
+            //var userRequest = json?["userRequest"]?.ToString();
+            //var errors = json?["errors"]?.ToString();
+
             var response = new
             {
-                status,
-                userPrompt,
-                products
+                model,
+                quantity,
+                department,
+                confidence
             };
 
 
-            // category (unit)
-            // confidenceScore (float)
 
-
-            return JsonSerializer.Serialize(response); // Or however you write JSON in your API framework
+            //    return JsonSerializer.Serialize(response); // Or however you write JSON in your API framework
+            return null;
         }
         catch (Exception ex)
         {
@@ -94,48 +121,71 @@ public class ClassifyRequestTool
         }
     }
 
+
     private static class PromptTemplate
     {
         public static string ClassifyRequestPromptTempate(string requestText)
         {
-            return @"You are an agent that identifies requested products for purchase.
+            return @"Identify requested products for purchase.
 
-Supported products (sku: name):
-- MBP-16-M3: MacBook Pro 16” (M3 Pro)
-- MBP-14-M3: MacBook Pro 14” (M3 Pro)
-- DELL-LAT5440: Dell Latitude 5440
-- DELL-XPS13: Dell XPS 13
-- LEN-T14S: Lenovo ThinkPad T14s
-- LEN-X1C10: Lenovo ThinkPad X1 Carbon G10
-- HP-ELITE840: HP EliteBook 840 G10
-- SURF-LAP-STUDIO2: Surface Laptop Studio 2
-- SURF-PRO9: Surface Pro 9 Tablet
-- ASUS-EXPERT: ASUS ExpertBook B9
-- ACER-TMP6: Acer TravelMate P6
+Extract the following order details from the user's purchase request. Return STRICTLY valid JSON according to the schema below.
 
-User Request:
-{{requestText}}
 
-Return only a valid JSON object using **one** of these schemas:
 
-If the request matches exactly one product:
-{ ""status"": ""matched"", ""skus"": [""MBP-16-M3""], ""userPrompt"": ""You requested a MacBook Pro 16”. Please confirm or specify configuration details (RAM, storage, etc.)."" }
 
-If the request could refer to more than one product:
-{ ""status"": ""ambiguous"", ""skus"": [""MBP-16-M3"", ""MBP-14-M3""], ""userPrompt"": ""Did you mean the 14” or 16” MacBook Pro? Please clarify."" }
 
-If no product is found:
-{ ""status"": ""not_found"", ""skus"": [], ""userPrompt"": ""No supported product matched your request. Please choose from the list above."" }
 
-If you are not certain, or more than one product might match, always use the ""ambiguous"" schema.
+Return JSON matching this schema:
+{
+  ""status"": ""success"" | ""error"",
 
-Do NOT include any explanations, markdown, or extra text—return ONLY the JSON object.";
+    Supported products (sku: name):
+    - MBP-16-M3: MacBook Pro 16” (M3 Pro)
+    - MBP-14-M3: MacBook Pro 14” (M3 Pro)
+    - DELL-LAT5440: Dell Latitude 5440
+    - DELL-XPS13: Dell XPS 13
+    - LEN-T14S: Lenovo ThinkPad T14s
+    - LEN-X1C10: Lenovo ThinkPad X1 Carbon G10
+    - HP-ELITE840: HP EliteBook 840 G10
+    - SURF-LAP-STUDIO2: Surface Laptop Studio 2
+    - SURF-PRO9: Surface Pro 9 Tablet
+    - ASUS-EXPERT: ASUS ExpertBook B9
+    - ACER-TMP6: Acer TravelMate P6
+
+    User request: {{$userRequest}}
+
+
+- entities: object, include only relevant fields (e.g., model, quantity, department)
+
+
+    Return only a valid JSON object using **one** of these schemas:
+
+    If the request matches exactly one product:
+    { ""status"": ""matched"", ""skus"": [""MBP-16-M3""], ""userPrompt"": ""You requested a MacBook Pro 16”."" }
+
+    If the request could refer to more than one product:
+    { ""status"": ""ambiguous"", ""skus"": [""MBP-16-M3"", ""MBP-14-M3""], ""userPrompt"": ""Did you mean the 14” or 16” MacBook Pro? Please clarify."" }
+
+    If no product is found:
+    { ""status"": ""not_found"", ""skus"": [], ""userPrompt"": ""No supported product matched your request. Please choose from the list above."" }
+
+    If you are not certain, or more than one product might match, always use the ""ambiguous"" schema.
+
+    Do NOT include any explanations, markdown, or extra text—return ONLY the JSON object.";
         }
     }
 
 }
 
-// Always return an array for "skus", even for single matches 
+    // Always return an array for "skus", even for single matches 
+
+
+
+
+
+
+
+
 
 
 
