@@ -1,4 +1,5 @@
 using Azure;
+using Azure.Core;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.SemanticKernel;
@@ -10,14 +11,20 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Numerics;
+using System.Reflection.PortableExecutable;
+using System.Runtime.ConstrainedExecution;
+using System.Runtime.InteropServices;
+using System.Security.Principal;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using System.Threading;
 using static Microsoft.Extensions.Logging.EventSource.LoggingEventSource;
 using static System.Net.Mime.MediaTypeNames;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
-[Description("Determines the category of a user's purchase request (e.g., hardware, software, services) using a language model.")]
+
+[Description("Extracts structured order details—including model, quantity, department, confidence, warnings, errors, and status—from a user's purchase request. Returns a JSON object matching the extraction schema.")]
 public class ExtractOrderDetailsTool
 {
     public string Name => "ExtractOrderDetailsTool";
@@ -31,17 +38,49 @@ public class ExtractOrderDetailsTool
     }
 
     [KernelFunction]
-    [Description("Returns the category and confidence score for a user’s purchase-related request in JSON format.")]
+    [Description("The user's purchase request in natural language, e.g., 'I need two Dell Latitude 5440s for QA.")]
     public async Task<string> ExtractOrderDetailsAsync(
         Kernel kernel,
         [Description("Natural language text describing what the user wants to purchase.")] string userRequest,
         [Description("Natural language text describing what the user wants to purchase.")] string intent)
     {
-        try 
+        try
         {
             _logger.LogInformation("Processing user request in ClassifyRequestTool: {userRequest}", userRequest); // Log the user prompt
 
             if (intent != "RequestPurchase")
+            {
+                ///<ArchitectureNote = Wrong Tool Usage>
+                ///  If the user intent is not a purchase request, don't return an exception abort the workflow.
+                ///  Instead, try and recover by returning a structured response that helps the LLM 
+                ///  understand it made an error and guide it to correct course.
+                ///  
+                /// The response should:
+                ///    1. Doesn't crash the workflow - Returns a valid JSON response that the LLM can process
+                ///    2. Clearly indicates the error - The status: "error" and error: "wrong_tool" fields signal something went wrong
+                ///    3. Provides context - Explains why this tool isn't appropriate
+                ///    4. Offers guidance - Suggests what the LLM should do next
+                ///    5. Maintains consistency - Returns JSON like all other responses
+                ///    
+                /// The LLM can then:
+                ///    1. Recognize it used the wrong tool
+                ///    2. Read the suggestion
+                ///    3. Reason about which tool to use next
+                ///    4. Continue the workflow without crashing or manual intervention
+                ///</ArchitectureNote>
+
+                _logger.LogWarning("ExtractOrderDetailsTool called with non-purchase intent: {Intent}", intent);
+
+                var errorResponse = new
+                {
+                    status = "error",
+                    error = "wrong_tool",
+                    message = $"This tool extracts order details for purchase requests only. The current intent is '{intent}'.",
+                    suggestion = "Consider using IntentRouterTool to determine the correct intent first, or use a tool appropriate for the current intent.",
+                    intent = intent,
+                    confidence = 0.0
+                };
+            }
                 throw new InvalidOperationException("ExtractOrderDetailsTool called for non-purchase intent!");
 
             var toolPrompt = PromptTemplate.ClassifyRequestPromptTempate(userRequest).Replace("{{userRequest}}", userRequest);
@@ -57,36 +96,12 @@ public class ExtractOrderDetailsTool
 
             // Parse and enrich ambiguous response
             string rawJson = result.ToString();
-            //try
-            //{
-            //    var json = JsonNode.Parse(rawJson);
-            //    var status = json?["status"]?.ToString();
-            //    var userPrompt = json?["userPrompt"]?.ToString();
-            //    var skus = json?["skus"]?.AsArray()?.Select(s => s?.ToString()).ToList() ?? new List<string>();
 
-            //    List<ProductDTO> products = new List<ProductDTO>();
+            //var json = JsonNode.Parse(rawJson);
+            //var status = json?["status"]?.ToString();
+            //var userPrompt = json?["userPrompt"]?.ToString();
+            //var skus = json?["skus"]?.AsArray()?.Select(s => s?.ToString()).ToList() ?? new List<string>();
 
-            //    if (skus == null || skus.Count == 0)
-            //    {
-            //        // If no SKUs are provided, return an empty list
-            //        products = await _productRepository.GetAllProductsSummaryViewAsync();
-            //    }
-            //    else
-            //    {
-            //        products = await _productRepository.GetBySkus(skus);
-            //    }
-
-            //    // Construct your API response object
-            //    var response = new
-            //    {
-            //        status,
-            //        userPrompt,
-            //        products
-            //    };
-
-
-            //    // category (unit)
-            //    // confidenceScore (float)
             // Parse the model's response
             var json = JsonNode.Parse(rawJson);
             var model = json?["model"]; //?.AsArray()?.Select(s => s?.ToString()).ToList() ?? new List<string>();
@@ -94,23 +109,33 @@ public class ExtractOrderDetailsTool
             var quantity = json?["quantity"];
             var department = json?["department"];
             var confidence = json?["confidence"]?.GetValue<double>() ?? 0.0;
-            
-                        
-            //var userRequest = json?["userRequest"]?.ToString();
-            //var errors = json?["errors"]?.ToString();
+            var skus = json?["skus"]?.AsArray()?.Select(s => s?.ToString()).ToList() ?? new List<string>();
 
+            List<ProductDTO> products = new List<ProductDTO>();
+
+            if (skus == null || skus.Count == 0)
+            {
+                // If no SKUs are provided, return an empty list
+                products = await _productRepository.GetAllProductsSummaryViewAsync();
+            }
+            else
+            {
+                products = await _productRepository.GetBySkus(skus);
+            }
+
+            // Construct your API response object
             var response = new
             {
                 model,
+                status,
                 quantity,
                 department,
-                confidence
+                confidence,
+                skus,
+                products
             };
 
-
-
-            //    return JsonSerializer.Serialize(response); // Or however you write JSON in your API framework
-            return null;
+            return JsonSerializer.Serialize(response); // Or however you write JSON in your API framework
         }
         catch (Exception ex)
         {
@@ -126,55 +151,62 @@ public class ExtractOrderDetailsTool
     {
         public static string ClassifyRequestPromptTempate(string requestText)
         {
-            return @"Identify requested products for purchase.
+            return @"Extract order details from the user's purchase request.
 
-Extract the following order details from the user's purchase request. Return STRICTLY valid JSON according to the schema below.
+Supported products (sku: name):
+- MBP-16-M3: MacBook Pro 16"" (M3 Pro)
+- MBP-14-M3: MacBook Pro 14"" (M3 Pro)
+- DELL-LAT5440: Dell Latitude 5440
+- DELL-XPS13: Dell XPS 13
+- LEN-T14S: Lenovo ThinkPad T14s
+- LEN-X1C10: Lenovo ThinkPad X1 Carbon G10
+- HP-ELITE840: HP EliteBook 840 G10
+- SURF-LAP-STUDIO2: Surface Laptop Studio 2
+- SURF-PRO9: Surface Pro 9 Tablet
+- ASUS-EXPERT: ASUS ExpertBook B9
+- ACER-TMP6: Acer TravelMate P6
 
+User request: {{userRequest}}
 
+Identify the requested product(s) AND extract order details.
 
-
-
-
-Return JSON matching this schema:
+Return STRICTLY valid JSON with these fields:
 {
-  ""status"": ""success"" | ""error"",
+  ""status"": ""matched"" | ""ambiguous"" | ""not_found"",
+  ""skus"": [""array of matching SKUs only""],
+  ""department"": ""extracted department name or null"",
+  ""quantity"": number (default 1),
+  ""confidence"": float between 0 and 1
+}
 
-    Supported products (sku: name):
-    - MBP-16-M3: MacBook Pro 16” (M3 Pro)
-    - MBP-14-M3: MacBook Pro 14” (M3 Pro)
-    - DELL-LAT5440: Dell Latitude 5440
-    - DELL-XPS13: Dell XPS 13
-    - LEN-T14S: Lenovo ThinkPad T14s
-    - LEN-X1C10: Lenovo ThinkPad X1 Carbon G10
-    - HP-ELITE840: HP EliteBook 840 G10
-    - SURF-LAP-STUDIO2: Surface Laptop Studio 2
-    - SURF-PRO9: Surface Pro 9 Tablet
-    - ASUS-EXPERT: ASUS ExpertBook B9
-    - ACER-TMP6: Acer TravelMate P6
+Decision rules:
+- If the request matches exactly one product: status = ""matched""
+- If the request could refer to more than one product: status = ""ambiguous""
+- If no product is found: status = ""not_found""
+- Always return skus as an array, even for single matches
 
-    User request: {{$userRequest}}
+Extraction rules:
+- Extract department ONLY if explicitly mentioned (e.g., ""for IT department"", ""engineering team needs"")
+- Extract quantity ONLY if explicitly mentioned (e.g., ""2 laptops"", ""three computers"")
+- If department is not mentioned: department = null
+- If quantity is not mentioned: quantity = 1
 
+Examples:
+Request: ""I need 2 MacBook Pros for the IT department""
+{""status"":""ambiguous"",""skus"":[""MBP-16-M3"",""MBP-14-M3""],""department"":""IT"",""quantity"":2,""confidence"":0.85}
 
-- entities: object, include only relevant fields (e.g., model, quantity, department)
+Request: ""Order a Dell XPS 13""
+{""status"":""matched"",""skus"":[""DELL-XPS13""],""department"":null,""quantity"":1,""confidence"":0.95}
 
+Request: ""Get me 5 ThinkPads""
+{""status"":""ambiguous"",""skus"":[""LEN-T14S"",""LEN-X1C10""],""department"":null,""quantity"":5,""confidence"":0.80}
 
-    Return only a valid JSON object using **one** of these schemas:
+Request: ""I need a gaming laptop""
+{""status"":""not_found"",""skus"":[],""department"":null,""quantity"":1,""confidence"":0.90}
 
-    If the request matches exactly one product:
-    { ""status"": ""matched"", ""skus"": [""MBP-16-M3""], ""userPrompt"": ""You requested a MacBook Pro 16”."" }
-
-    If the request could refer to more than one product:
-    { ""status"": ""ambiguous"", ""skus"": [""MBP-16-M3"", ""MBP-14-M3""], ""userPrompt"": ""Did you mean the 14” or 16” MacBook Pro? Please clarify."" }
-
-    If no product is found:
-    { ""status"": ""not_found"", ""skus"": [], ""userPrompt"": ""No supported product matched your request. Please choose from the list above."" }
-
-    If you are not certain, or more than one product might match, always use the ""ambiguous"" schema.
-
-    Do NOT include any explanations, markdown, or extra text—return ONLY the JSON object.";
+Do NOT include any explanations, markdown, or extra text—return ONLY the JSON object.";
         }
     }
-
 }
 
     // Always return an array for "skus", even for single matches 
