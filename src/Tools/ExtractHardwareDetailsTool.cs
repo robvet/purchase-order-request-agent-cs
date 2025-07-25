@@ -25,13 +25,13 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 
 
 [Description("Extracts structured order details—including model, quantity, department, confidence, warnings, errors, and status—from a user's purchase request. Returns a JSON object matching the extraction schema.")]
-public class ExtractOrderDetailsTool
+public class ExtractHardwareDetailsTool
 {
     public string Name => "ExtractOrderDetailsTool";
-    private readonly ILogger<ExtractOrderDetailsTool> _logger; // Logger for this agent
+    private readonly ILogger<ExtractHardwareDetailsTool> _logger; // Logger for this agent
     private readonly IProductRepository _productRepository;
 
-    public ExtractOrderDetailsTool(ILogger<ExtractOrderDetailsTool> logger, IProductRepository productRepository)
+    public ExtractHardwareDetailsTool(ILogger<ExtractHardwareDetailsTool> logger, IProductRepository productRepository)
     {
         _logger = logger;
         _productRepository = productRepository;
@@ -77,12 +77,11 @@ public class ExtractOrderDetailsTool
                     error = "wrong_tool",
                     message = $"This tool extracts order details for purchase requests only. The current intent is '{intent}'.",
                     suggestion = "Consider using IntentRouterTool to determine the correct intent first, or use a tool appropriate for the current intent.",
-                    intent = intent,
+                    //intent = intent,
                     confidence = 0.0
                 };
             }
-                throw new InvalidOperationException("ExtractOrderDetailsTool called for non-purchase intent!");
-
+                
             var toolPrompt = PromptTemplate.ClassifyRequestPromptTempate(userRequest).Replace("{{userRequest}}", userRequest);
 
             // Call the kernel to get the model's response
@@ -104,34 +103,32 @@ public class ExtractOrderDetailsTool
 
             // Parse the model's response
             var json = JsonNode.Parse(rawJson);
-            var model = json?["model"]; //?.AsArray()?.Select(s => s?.ToString()).ToList() ?? new List<string>();
             var status = json?["status"];
             var quantity = json?["quantity"];
             var department = json?["department"];
             var confidence = json?["confidence"]?.GetValue<double>() ?? 0.0;
-            var skus = json?["skus"]?.AsArray()?.Select(s => s?.ToString()).ToList() ?? new List<string>();
+            var sku = json?["sku"]?.AsArray()?.Select(s => s?.ToString()).ToList() ?? new List<string>();
 
             List<ProductDTO> products = new List<ProductDTO>();
 
-            if (skus == null || skus.Count == 0)
+            if (sku == null || sku.Count == 0)
             {
-                // If no SKUs are provided, return an empty list
+                // If no SKU are provided, return an empty list
                 products = await _productRepository.GetAllProductsSummaryViewAsync();
             }
             else
             {
-                products = await _productRepository.GetBySkus(skus);
+                products = await _productRepository.GetBySkus(sku);
             }
 
             // Construct your API response object
             var response = new
             {
-                model,
                 status,
                 quantity,
                 department,
                 confidence,
-                skus,
+                sku,
                 products
             };
 
@@ -173,8 +170,8 @@ Identify the requested product(s) AND extract order details.
 Return STRICTLY valid JSON with these fields:
 {
   ""status"": ""matched"" | ""ambiguous"" | ""not_found"",
-  ""skus"": [""array of matching SKUs only""],
-  ""department"": ""extracted department name or null"",
+  ""sku"": [""array of matching SKUs only""],
+  ""department"": ""extracted department name or 'unknown'"",
   ""quantity"": number (default 1),
   ""confidence"": float between 0 and 1
 }
@@ -183,7 +180,7 @@ Decision rules:
 - If the request matches exactly one product: status = ""matched""
 - If the request could refer to more than one product: status = ""ambiguous""
 - If no product is found: status = ""not_found""
-- Always return skus as an array, even for single matches
+- Always return sku as an array, even for single matches
 
 Extraction rules:
 - Extract department ONLY if explicitly mentioned (e.g., ""for IT department"", ""engineering team needs"")
@@ -193,16 +190,16 @@ Extraction rules:
 
 Examples:
 Request: ""I need 2 MacBook Pros for the IT department""
-{""status"":""ambiguous"",""skus"":[""MBP-16-M3"",""MBP-14-M3""],""department"":""IT"",""quantity"":2,""confidence"":0.85}
+{""status"":""ambiguous"",""sku"":[""MBP-16-M3"",""MBP-14-M3""],""department"":""IT"",""quantity"":2,""confidence"":0.85}
 
 Request: ""Order a Dell XPS 13""
-{""status"":""matched"",""skus"":[""DELL-XPS13""],""department"":null,""quantity"":1,""confidence"":0.95}
+{""status"":""matched"",""sku"":[""DELL-XPS13""],""department"":null,""quantity"":1,""confidence"":0.95}
 
 Request: ""Get me 5 ThinkPads""
-{""status"":""ambiguous"",""skus"":[""LEN-T14S"",""LEN-X1C10""],""department"":null,""quantity"":5,""confidence"":0.80}
+{""status"":""ambiguous"",""sku"":[""LEN-T14S"",""LEN-X1C10""],""department"":null,""quantity"":5,""confidence"":0.80}
 
 Request: ""I need a gaming laptop""
-{""status"":""not_found"",""skus"":[],""department"":null,""quantity"":1,""confidence"":0.90}
+{""status"":""not_found"",""sku"":[],""department"":null,""quantity"":1,""confidence"":0.90}
 
 Do NOT include any explanations, markdown, or extra text—return ONLY the JSON object.";
         }

@@ -79,7 +79,7 @@ namespace NearbyCS_API.Tools
             public static string IntentRouterPrompt(string userPromptInput)
             {
                 return @"You are an intent-and-entity extractor.
-User input: {{$userPromptInput}}
+User input: {{userPromptInput}}
 
 Return STRICTLY valid JSON:
 

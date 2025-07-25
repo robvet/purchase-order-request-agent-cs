@@ -14,30 +14,72 @@ public class CheckPolicyComplianceTool
     public async Task<string> CheckPolicyComplianceAsync(
         Kernel kernel,
         [Description("Category of the purchase request (e.g., Hardware, Software, Office Supplies)")] string category,
-        [Description("Specific item being requested")] string item,
+        [Description("Specific item being requested")] string sku,
         [Description("Number of items being requested")] int quantity,
         [Description("Department making the request")] string department,
         [Description("Cost per unit of the item")] decimal unitCost)
     {
-        // Prepare the prompt by replacing placeholders with actual values
-        var prompt = CheckCompliancePrompt
-            .Replace("{{Category}}", category)
-            .Replace("{{Item}}", item)
-            .Replace("{{Quantity}}", quantity.ToString())
-            .Replace("{{UnitCost}}", unitCost.ToString())
-            .Replace("{{Department}}", department);
+        try
+        {
+            // Prepare the prompt by replacing placeholders with actual values
+            var prompt = CheckCompliancePrompt
+                .Replace("{{Category}}", category)
+                .Replace("{{sku}}", sku)
+                .Replace("{{Quantity}}", quantity.ToString())
+                .Replace("{{UnitCost}}", unitCost.ToString())
+                .Replace("{{Department}}", department);
 
-        // Call the kernel to get the model's response
-        var result = await kernel.InvokePromptAsync(prompt, new() {
-            { "Category", category },
-            { "Item", item },
-            { "Quantity", quantity.ToString() },
-            { "UnitCost", unitCost.ToString() },
-            { "Department", department }
-        });
+            // Call the kernel to get the model's response
+            var result = await kernel.InvokePromptAsync(prompt, new() {
+                { "Category", category },
+                { "Sku", sku },
+                { "Quantity", quantity.ToString() },
+                { "UnitCost", unitCost.ToString() },
+                { "Department", department }
+            });
 
-        // Return the model's raw response (should be JSON)
-        return result.ToString();
+            // Parse the response to ensure it matches the expected format
+            string rawJson = result.ToString();
+            
+            try
+            {
+                using var doc = JsonDocument.Parse(rawJson);
+                var root = doc.RootElement;
+                
+                // Validate that the response has the expected structure
+                if (!root.TryGetProperty("compliant", out _) || !root.TryGetProperty("violations", out _))
+                {
+                    throw new JsonException("Response missing required 'compliant' or 'violations' properties");
+                }
+                
+                // Return the validated JSON
+                return rawJson;
+            }
+            catch (JsonException)
+            {
+                // If parsing fails, return a structured error response
+                var fallbackResponse = new
+                {
+                    compliant = false,
+                    violations = new[] { "Unable to parse policy compliance response from LLM" },
+                    error = "json_parse_error"
+                };
+                
+                return JsonSerializer.Serialize(fallbackResponse);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Return error response in the expected format
+            var errorResponse = new
+            {
+                compliant = false,
+                violations = new[] { $"Policy compliance check failed: {ex.Message}" },
+                error = "compliance_check_error"
+            };
+            
+            return JsonSerializer.Serialize(errorResponse);
+        }
     }
 
     [KernelFunction]
@@ -53,12 +95,12 @@ public class CheckPolicyComplianceTool
 
             // Use utility class for resilient parsing with smart defaults
             var category = JsonPropertyExtractor.ExtractStringProperty(root, "category", "Other");
-            var item = JsonPropertyExtractor.ExtractStringProperty(root, "item", "Unknown Item");
+            var sku = JsonPropertyExtractor.ExtractStringProperty(root, "sku", "Unknown sku");
             var quantity = JsonPropertyExtractor.ExtractIntProperty(root, "quantity", 1);
             var department = JsonPropertyExtractor.ExtractStringProperty(root, "department", "General");
             var unitCost = JsonPropertyExtractor.ExtractDecimalProperty(root, "unitCost", 0m);
 
-            return await CheckPolicyComplianceAsync(kernel, category, item, quantity, department, unitCost);
+            return await CheckPolicyComplianceAsync(kernel, category, sku, quantity, department, unitCost);
         }
         catch (JsonException ex)
         {
@@ -95,7 +137,7 @@ You are a compliance reasoning agent responsible for determining whether a purch
 
 ---REQUEST---
 Category: {{Category}}
-Item: {{Item}}
+Sku: {{sku}}
 Quantity: {{Quantity}}
 UnitCost: {{UnitCost}}
 Department: {{Department}}
@@ -123,3 +165,4 @@ Do NOT include any additional text, explanations, or commentary—return ONLY the 
 
     #endregion
 }
+

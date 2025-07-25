@@ -5,7 +5,7 @@ using System.ComponentModel;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace NearbyCS_API.Tools
+namespace NearbyCS_API.Future.Tools
 {
     public class ShowQualifiedProductsTool
     {

@@ -253,7 +253,8 @@ namespace NearbyCS_API.Storage.Providers
                 Sku = p.Sku,
                 Name = p.Name,
                 Description = p.Description,
-                Cost = p.Cost
+                Cost = p.Cost,
+                IsAvailable = p.IsAvailable  // 🚨 BUG FIX: Include IsAvailable in response
             }).ToList());
 
         public Task<List<ProductDTO>> GetAllProductsSummaryViewAsync() => 
@@ -262,7 +263,8 @@ namespace NearbyCS_API.Storage.Providers
             Sku = p.Sku,
             Name = p.Name,
             Description = p.Description,
-            Cost = p.Cost
+            Cost = p.Cost,
+            IsAvailable = p.IsAvailable  // 🚨 BUG FIX: Include IsAvailable
         }).ToList());
 
         public Task<List<ProductDTO>> GetAlternativeProductsAsync() =>
