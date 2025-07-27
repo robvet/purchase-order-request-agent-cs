@@ -1,12 +1,12 @@
 ﻿using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
-using NearbyCS_API.Models;
-using NearbyCS_API.Storage.Contract;
+using SingleAgent.Models;
+using SingleAgent.Storage.Contract;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
-namespace NearbyCS_API.Telemetry
+namespace SingleAgent.Telemetry
 {
     public class TelemetryFunctionFilter : IFunctionInvocationFilter
     {
@@ -30,43 +30,46 @@ namespace NearbyCS_API.Telemetry
         public async Task OnFunctionInvocationAsync(FunctionInvocationContext context, Func<FunctionInvocationContext, Task> next)
         {
             var telemetryCollector = _httpContextAccessor.HttpContext?.Items["TelemetryCollector"] as TelemetryCollector;
-            if (telemetryCollector == null) return;
+            if (telemetryCollector == null) 
+            {
+                await next(context);
+                return;
+            }
 
             var function = context.Function;
-            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-
-            // DEMO MODE: Keep it simple - just log to console, don't bloat chat history
-            _logger.LogInformation("Tool Starting: {ToolName}", function.Name);
+            
+            // Extract parameters for telemetry - simple and clean
+            var parameters = context.Arguments?.ToDictionary(kvp => kvp.Key, kvp => (object)(kvp.Value?.ToString() ?? "")) 
+                           ?? new Dictionary<string, object>();
+            
+            // Record function call with parameters - this is the key debugging info
+            telemetryCollector.RecordFunctionCall(function.Name, parameters);
+            
+            // Keep simple backward compatible telemetry
+            telemetryCollector.Add($"[FUNCTION_CALL] {function.Name}");
+            
+            _logger.LogInformation("Function Starting: {FunctionName}", function.Name);
 
             try
             {
                 // Execute the function
                 await next(context);
-
-                stopwatch.Stop();
                 
-                // DEMO MODE: Simple logging only - no chat history bloat
-                _logger.LogInformation("Tool Completed: {ToolName} in {Duration}ms", 
-                    function.Name, stopwatch.ElapsedMilliseconds);
-
-                // Only add minimal telemetry to chat context for demo
-                telemetryCollector.Add($"[TOOL] {function.Name} completed");
+                // NEW: Capture function result/output
+                var result = context.Result?.GetValue<object>();
+                telemetryCollector.RecordFunctionResult(function.Name, result);
+                
+                _logger.LogInformation("Function Completed: {FunctionName}", function.Name);
             }
             catch (Exception ex)
             {
-                stopwatch.Stop();
-                _logger.LogError(ex, "Tool Failed: {ToolName} after {Duration}ms", 
-                    function.Name, stopwatch.ElapsedMilliseconds);
+                // Record error for debugging
+                telemetryCollector.RecordFunctionError(function.Name, ex.Message);
                 
-                // Add simple error info
-                telemetryCollector.Add($"[TOOL_ERROR] {function.Name} failed");
+                _logger.LogError(ex, "Function Failed: {FunctionName}", function.Name);
                 throw;
             }
         }
-
-        // TODO: FUTURE COMPLEXITY - Enterprise telemetry for production debugging
-        // The original verbose telemetry code has been commented out to prevent chat history bloat
-        // Uncomment and restore when enterprise-level debugging is needed
     }
 }
 

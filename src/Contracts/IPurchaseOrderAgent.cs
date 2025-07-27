@@ -1,7 +1,7 @@
 using Microsoft.SemanticKernel.ChatCompletion; // For chat completion services
-using NearbyCS_API.Models;
+using SingleAgent.Models;
 
-namespace NearbyCS_API.Contracts
+namespace SingleAgent.Contracts
 {
     public interface IPurchaseOrderAgent
     {

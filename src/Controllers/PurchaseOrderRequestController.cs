@@ -1,11 +1,11 @@
-using Microsoft.AspNetCore.Mvc;
-using NearbyCS_API.Contracts;
-using NearbyCS_API.Models;
-using NearbyCS_API.Models.DTO;
+﻿using Microsoft.AspNetCore.Mvc;
+using SingleAgent.Contracts;
+using SingleAgent.Models;
+using SingleAgent.Models.DTO;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace NearbyCS_API.Controllers
+namespace SingleAgent.Controllers
 {
     [ApiController]
     [Route("[controller]")]
@@ -67,6 +67,14 @@ namespace NearbyCS_API.Controllers
                 // 2. Call agent - receive completion, history
                 var (completion, history) = await _purchaseOrderAgent.ProcessUserRequestAsync(userInputPrompt, sessionId, _telemetryCollector);
 
+                // 🔍 DEBUG: Get formatted debug output with Input/Output structure
+                var FunctionExecutionSummary = _telemetryCollector.GetExecutionSummary();
+                var DetailedExecutionLog = _telemetryCollector.GetDetailedExecutionLog();
+                var functionDebug = new FunctionDebugDto 
+                { 
+                    FormattedOutput = _telemetryCollector.GetFormattedFunctionDebugOutput() 
+                };
+
                 // 3. Set sessionId as cookie for tracking history across turns
                 Response.Cookies.Append("SessionId", sessionId, new CookieOptions { HttpOnly = true, SameSite = SameSiteMode.Lax });
 
@@ -74,7 +82,6 @@ namespace NearbyCS_API.Controllers
                 var toolSteps = InjectDynamicTelemetryTransformation(_telemetryCollector.GetAll().ToList());
 
                 // 5. Map ChatHistory to DTO (Data Transfer Object)
-
                 var jsonNode = JsonNode.Parse(completion);
                 var response = jsonNode.ToAgentResponseDto(
                     sessionId,
@@ -84,24 +91,30 @@ namespace NearbyCS_API.Controllers
                     showDebug
                 );
 
-                //try
-                //{
-                //    var jsonNode = JsonNode.Parse(completion);
-                //    var reflection = jsonNode?["reflection"]?.ToString();
-                //    var nextStep = jsonNode?["nextStep"]?.ToString();
-                //    var userPrompt = jsonNode?["userPrompt"]?.ToString();
+                // 6. Return response with separate FunctionDebug if showDebug is true
+                if (showDebug)
+                {
+                    return Ok(new
+                    {
+                        response.UserPrompt,
+                        response.Reflection,
+                        response.NextStep,
+                        response.Products,
+                        //response.DebugInfo,
+                        FunctionDebug = functionDebug
+                    });
+                }
+                else
+                {
+                    return Ok(new
+                    {
+                        response.UserPrompt,
+                        response.Reflection,
+                        response.Products
+                    });
+                }
 
-                //    return Ok(new
-                //    {
-                //        sessionId,
-                //        reflection,
-                //        nextStep,
-                //        userPrompt,
-                //        debugInfo
-                //    });
-                //}
-
-                _logger.LogInformation("User prompt processed successfully: {Response}", response);
+                _logger.LogInformation("User prompt processed successfully");
 
                 return Ok(response);
             }
@@ -159,8 +172,8 @@ namespace NearbyCS_API.Controllers
 
                         // Each Semantic Kernel internally calls kernel.InvokePromptAsync(), creating a nested function call.
                         // The telemetry filter captures both calls resulting into two distinct entries:
-                        //  � Parent: ClassifyRequestTool.ClassifyRequest(empty results)
-                        //  � Child: InvokePromptAsync_de60780b7c1b45259ac38332998647a2(actual results)
+                        //  • Parent: ClassifyRequestTool.ClassifyRequest(empty results)
+                        //  • Child: InvokePromptAsync_de60780b7c1b45259ac38332998647a2(actual results)
 
 
 

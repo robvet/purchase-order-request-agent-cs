@@ -1,4 +1,4 @@
-﻿namespace NearbyCS_API.Future.Tools
+﻿namespace SingleAgent.Future.Tools
 {
     public class ShowSupportedModelsTool
     {

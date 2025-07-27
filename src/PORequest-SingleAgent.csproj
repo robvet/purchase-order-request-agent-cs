@@ -4,7 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <RootNamespace>NearbyCS_API</RootNamespace>
+    <RootNamespace>SingleAgent</RootNamespace>
     <UserSecretsId>c06a8e40-1dcb-4084-ae99-29d8a799d746</UserSecretsId>
   </PropertyGroup>
 

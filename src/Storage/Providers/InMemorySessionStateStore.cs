@@ -1,9 +1,9 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.SemanticKernel.ChatCompletion;
-using NearbyCS_API.Storage.Contract;
+using SingleAgent.Storage.Contract;
 using System.Text.Json;
 
-namespace NearbyCS_API.Storage.Providers
+namespace SingleAgent.Storage.Providers
 { 
     public class InMemorySessionStateStore : IStateStore
     {

@@ -1,15 +1,15 @@
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
-using NearbyCS_API.Contracts;
-using NearbyCS_API.Models;
+using SingleAgent.Contracts;
+using SingleAgent.Models;
 // State store interface
-using NearbyCS_API.Storage.Contract;
+using SingleAgent.Storage.Contract;
 using System.Security.Principal;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace NearbyCS_API.Agents // Namespace for agent classes
+namespace SingleAgent.Agents // Namespace for agent classes
 {
     // Define the IInvoiceAgent interface if it does not exist elsewhere
     public class PurchaseOrderAgent : IPurchaseOrderAgent// Main agent class
@@ -79,14 +79,22 @@ namespace NearbyCS_API.Agents // Namespace for agent classes
 
                 string completion = result.Content ?? ""; // Get the completion text
 
-                // Track the last 'products' node if present in tool results
+                // Track the last 'products' node and 'reflection' if present in tool results
                 JsonNode? lastProductsNode = null;
+                string? lastReflection = null;
                 try
                 {
                     var json = JsonNode.Parse(completion);
-                    if (json is JsonObject obj && obj.ContainsKey("products"))
+                    if (json is JsonObject obj)
                     {
-                        lastProductsNode = obj["products"];
+                        if (obj.ContainsKey("products"))
+                        {
+                            lastProductsNode = obj["products"];
+                        }
+                        if (obj.ContainsKey("reflection"))
+                        {
+                            lastReflection = obj["reflection"]?.ToString();
+                        }
                     }
                 }
                 catch { /* Ignore parse errors here, handled elsewhere */ }
@@ -108,6 +116,7 @@ namespace NearbyCS_API.Agents // Namespace for agent classes
                     SessionId = sessionId,
                     MessageCount = chatHistory.Count,
                     LastCompletion = completion,
+                    LastReflection = lastReflection, // NEW: Add the extracted reflection
                     ChatMessages = chatHistory.Select((msg, index) => new 
                     {
                         Index = index,
@@ -162,8 +171,11 @@ You may use the following tools:
 1. IntentRoutingTool – Classifies an employee's request into one of: Request New Laptop, Show supported laptop models, laptop specs, Show procurement PolicySummary, Help.
 2. ExtractHardwareDetailsTool – Identify the laptop model category, extract SKUs, quantity, department from purchase requests.
 3. CheckPolicyComplianceTool – Review the request against all applicable procurement policies.
+4. ApprovalJustificationTool – Evaluates justification for hardware purchases that exceed the $1000 cost limit.
 
-Use tools one at a time. Only proceed when the previous result is valid and compliant.
+Important: CheckPolicyComplianceTool can handle incomplete information and will determine actual policy violations. Don't assume missing data prevents its use.
+
+Use tools one at a time. Reflect after each step and adjust your approach based on prior results.
 
 At every step:
 - Reflect on tool output

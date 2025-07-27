@@ -1,6 +1,6 @@
 using Microsoft.SemanticKernel;
-using NearbyCS_API.Storage.Contract;
-using NearbyCS_API.Utlls;
+using SingleAgent.Storage.Contract;
+using SingleAgent.Utlls;
 using System.ComponentModel;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -16,8 +16,8 @@ public class CheckPolicyComplianceTool
         [Description("Category of the purchase request (e.g., Hardware, Software, Office Supplies)")] string category,
         [Description("Specific item being requested")] string sku,
         [Description("Number of items being requested")] int quantity,
-        [Description("Department making the request")] string department,
-        [Description("Cost per unit of the item")] decimal unitCost)
+        [Description("Cost per unit of the item")] decimal unitCost,
+        [Description("Department making the request (can be 'unknown' if not provided)")] string department = "unknown")
     {
         try
         {
@@ -100,7 +100,7 @@ public class CheckPolicyComplianceTool
             var department = JsonPropertyExtractor.ExtractStringProperty(root, "department", "General");
             var unitCost = JsonPropertyExtractor.ExtractDecimalProperty(root, "unitCost", 0m);
 
-            return await CheckPolicyComplianceAsync(kernel, category, sku, quantity, department, unitCost);
+            return await CheckPolicyComplianceAsync(kernel, category, sku, quantity, unitCost, department);
         }
         catch (JsonException ex)
         {
@@ -122,18 +122,17 @@ You are a compliance reasoning agent responsible for determining whether a purch
 
 ### Procurement Policy:
 
-1. Hardware purchases for the Engineering department must not exceed $1000 per unit.
+1. Hardware purchases must not exceed $1000 per unit.
 2. Hardware requests over 10 units require department head approval.
 4. Laptop requests are limited to one per employee every 3 years.
 5. Only pre-approved vendors may be used for laptops, desktops, and servers.
 8. Any single requisition exceeding $50,000 must be routed to Finance VP for approval.
 9. Recurring SaaS purchases must be reviewed annually before renewal.
 10. Bulk orders over 25 units must include supplier discount verification.
-11. Desktop computers are not allowed for remote-only employees.
+11. Desktop computers are not allowed for employees.
 12. Hardware upgrades must be justified by age (minimum 36-month lifecycle).
 13. Any purchase tagged as ""urgent"" will trigger post-purchase audit.
-14. Purchases of personal electronics (e.g., tablets, phones) must include asset tracking IDs.
-15. All vendors must pass a compliance check with the Procurement Risk team prior to first use.
+
 
 ---REQUEST---
 Category: {{Category}}
@@ -148,6 +147,7 @@ Instructions:
 
 - For each policy listed above, check if the purchase request violates the rule.
 - If a violation is found, add a brief string description to the ""violations"" array. Use one string per violated policy; be concise.
+- Special case: If the violation is for exceeding cost limits (Policy #1), use this exact message: ""This item exceeds the $1000 limit. Please provide justification for more powerful hardware.""
 - If no policies are violated, leave the ""violations"" array empty.
 - Set ""compliant"" to true if there are no violations; otherwise, set it to false.
 - Return ONLY a valid JSON object using this exact structure:

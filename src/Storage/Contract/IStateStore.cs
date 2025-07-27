@@ -1,6 +1,6 @@
 ﻿using Microsoft.SemanticKernel.ChatCompletion;
 
-namespace NearbyCS_API.Storage.Contract
+namespace SingleAgent.Storage.Contract
 {
     public interface IStateStore
     {

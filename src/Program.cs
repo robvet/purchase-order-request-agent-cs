@@ -1,15 +1,15 @@
 using Microsoft.SemanticKernel;
-using NearbyCS_API.Agents;
-using NearbyCS_API.Contracts;
-using NearbyCS_API.Models;
-using NearbyCS_API.Models.DTO;
-using NearbyCS_API.Prompting;
-using NearbyCS_API.Storage.Contract;
-using NearbyCS_API.Storage.Providers;
-using NearbyCS_API.Telemetry;
-using NearbyCS_API.Tools;
-using NearbyCS_API.Uiltities;
-using NearbyCS_API.Utlls;
+using SingleAgent.Agents;
+using SingleAgent.Contracts;
+using SingleAgent.Models;
+using SingleAgent.Models.DTO;
+using SingleAgent.Prompting;
+using SingleAgent.Storage.Contract;
+using SingleAgent.Storage.Providers;
+using SingleAgent.Telemetry;
+using SingleAgent.Tools;
+using SingleAgent.Uiltities;
+using SingleAgent.Utlls;
 using System.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -41,7 +41,7 @@ string openAIApiKey = configuration["openai-apikey"] ?? throw new InvalidOperati
 string deploymentName = configuration["openai-deploymentname"] ?? throw new InvalidOperationException("Missing required secret: 'openai-deploymentname'.");
 string endpoint = configuration["openai-endpoint"] ?? throw new InvalidOperationException("Missing required secret: 'openai-endpoint'.");
 
-// Configure Semantic Kernel
+/// Configure Semantic Kernel
 var kernelBuilder = Kernel.CreateBuilder();
 
 kernelBuilder.AddAzureOpenAIChatCompletion(
@@ -54,6 +54,7 @@ kernelBuilder.AddAzureOpenAIChatCompletion(
 kernelBuilder.Plugins.AddFromType<IntentRoutingTool>();
 kernelBuilder.Plugins.AddFromType<ExtractHardwareDetailsTool>();
 kernelBuilder.Plugins.AddFromType<CheckPolicyComplianceTool>();
+kernelBuilder.Plugins.AddFromType<ApprovalJustificationTool>();
 
 //kernelBuilder.Plugins.AddFromType<ClassifyRequestTool>();
 //kernelBuilder.Plugins.AddFromType<ShowQualifiedProductsTool>();

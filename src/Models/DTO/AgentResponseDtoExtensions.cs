@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 
-namespace NearbyCS_API.Models.DTO
+namespace SingleAgent.Models.DTO
 {
     public static class AgentResponseDtoExtensions
     {
