@@ -37,9 +37,9 @@ builder.Services.AddLogging(config =>
 });
 
 // Retrieve required secrets from user secrets
-string openAIApiKey = configuration["openai-apikey"] ?? throw new InvalidOperationException("Missing required secret: 'openai-apikey'.");
-string deploymentName = configuration["openai-deploymentname"] ?? throw new InvalidOperationException("Missing required secret: 'openai-deploymentname'.");
-string endpoint = configuration["openai-endpoint"] ?? throw new InvalidOperationException("Missing required secret: 'openai-endpoint'.");
+string openAIApiKey = configuration["openai_apikey"] ?? throw new InvalidOperationException("Missing required secret: 'openai_apikey'.");
+string deploymentName = configuration["openai_deploymentname"] ?? throw new InvalidOperationException("Missing required secret: 'openai_deploymentname'.");
+string endpoint = configuration["openai_endpoint"] ?? throw new InvalidOperationException("Missing required secret: 'openai_endpoint'.");
 
 /// Configure Semantic Kernel
 var kernelBuilder = Kernel.CreateBuilder();

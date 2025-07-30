@@ -43,7 +43,7 @@ namespace SingleAgent.Controllers
 
         [HttpPost("ProcessPurchaseRequest")]
         public async Task<IActionResult> ProcessPurchaseRequestAsync([FromBody] string userInputPrompt,
-                                                                     [FromHeader(Name = "showdebug")] bool showDebug = true)
+                                                                     [FromHeader(Name = "showdebug")] bool showDebug = false)
         {
             try
             {
