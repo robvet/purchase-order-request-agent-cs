@@ -38,18 +38,18 @@ builder.Services.AddLogging(config =>
 
 // Retrieve required secrets from user secrets
 Console.WriteLine("Starting application...");
-string openAIApiKey = configuration["openaiapikey"] ?? throw new InvalidOperationException("Missing required secret: 'openai_apikey'.");
-string deploymentName = configuration["openaideploymentname"] ?? throw new InvalidOperationException("Missing required secret: 'openai_deploymentname'.");
-string endpoint = configuration["openaiendpoint"] ?? throw new InvalidOperationException("Missing required secret: 'openai_endpoint'.");
+string key = configuration["key"] ?? throw new InvalidOperationException("Missing required secret: 'key'.");
+string deployment = configuration["deployment"] ?? throw new InvalidOperationException("Missing required secret: 'deployment'.");
+string endpoint = configuration["endpoint"] ?? throw new InvalidOperationException("Missing required secret: 'endpoint'.");
 Console.WriteLine("Successfully loaded configuration secrets.");
 
 /// Configure Semantic Kernel
 var kernelBuilder = Kernel.CreateBuilder();
 
 kernelBuilder.AddAzureOpenAIChatCompletion(
-    deploymentName: deploymentName,
+    deploymentName: deployment,
     endpoint: endpoint,
-    apiKey: openAIApiKey
+    apiKey: key
 );
 
 // Register tools with the kernel
