@@ -1,15 +1,15 @@
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
-using NearbyCS_API.Contracts;
-using NearbyCS_API.Models;
+using SingleAgent.Contracts;
+using SingleAgent.Models;
 // State store interface
-using NearbyCS_API.Storage.Contract;
+using SingleAgent.Storage.Contract;
 using System.Security.Principal;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace NearbyCS_API.Agents // Namespace for agent classes
+namespace SingleAgent.Agents // Namespace for agent classes
 {
     // Define the IInvoiceAgent interface if it does not exist elsewhere
     public class PurchaseOrderAgent : IPurchaseOrderAgent// Main agent class
@@ -46,6 +46,10 @@ namespace NearbyCS_API.Agents // Namespace for agent classes
                 // Fetch chat history for the session or create a new one
                 var chatHistory = await _stateStore.GetChatHistoryAsync(sessionId) ?? new ChatHistory();
 
+                // TODO: FUTURE COMPLEXITY - Dual state management for enterprise features
+                // Load existing purchase request state or create new one
+                // var requestState = await _stateStore.GetRequestStateAsync(sessionId) ?? new PurchaseRequestState();
+
                 // Add system prompt as the first message if history is empty
                 if (chatHistory.Count == 0)
                 {
@@ -75,26 +79,63 @@ namespace NearbyCS_API.Agents // Namespace for agent classes
 
                 string completion = result.Content ?? ""; // Get the completion text
 
-                // Track the last 'products' node if present in tool results
+                // Track the last 'products' node and 'reflection' if present in tool results
                 JsonNode? lastProductsNode = null;
+                string? lastReflection = null;
                 try
                 {
                     var json = JsonNode.Parse(completion);
-                    if (json is JsonObject obj && obj.ContainsKey("products"))
+                    if (json is JsonObject obj)
                     {
-                        lastProductsNode = obj["products"];
+                        if (obj.ContainsKey("products"))
+                        {
+                            lastProductsNode = obj["products"];
+                        }
+                        if (obj.ContainsKey("reflection"))
+                        {
+                            lastReflection = obj["reflection"]?.ToString();
+                        }
                     }
                 }
                 catch { /* Ignore parse errors here, handled elsewhere */ }
 
+                // TODO: DEMO MODE - Keep telemetry simple for now, add back later
                 // Log the completion
-                telemetryCollector.Add($"[AGENT_RESPONSE] {completion}");
+                // telemetryCollector.Add($"[AGENT_RESPONSE] {completion}");
 
                 // Add the assistant's response to the chat history
                 chatHistory.AddAssistantMessage(completion);
 
                 // Save the updated chat history for the session
                 await _stateStore.SaveChatHistoryAsync(sessionId, chatHistory);
+
+                // TODO: DEMO MODE - Debug inspection point for chat history state
+                // ?? BREAKPOINT HERE: Inspect chatHistory and completion for debugging
+                var debugChatState = new
+                {
+                    SessionId = sessionId,
+                    MessageCount = chatHistory.Count,
+                    LastCompletion = completion,
+                    LastReflection = lastReflection, // NEW: Add the extracted reflection
+                    ChatMessages = chatHistory.Select((msg, index) => new 
+                    {
+                        Index = index,
+                        Role = msg.Role.ToString(),
+                        Content = msg.Content?.Substring(0, Math.Min(msg.Content.Length, 200)) + (msg.Content?.Length > 200 ? "..." : "")
+                    }).ToList(),
+                    FullChatHistoryJson = JsonSerializer.Serialize(chatHistory.Select(msg => new 
+                    {
+                        Role = msg.Role.ToString(),
+                        Content = msg.Content
+                    }), _jsonOptions)
+                };
+                
+                // Set breakpoint on next line to inspect debugChatState in debugger
+                _logger.LogInformation("Chat state ready for inspection: {MessageCount} messages", debugChatState.MessageCount);
+
+                // TODO: FUTURE COMPLEXITY - Save business state separately from chat history
+                // Save the updated purchase request state for the session
+                // await _stateStore.SaveRequestStateAsync(sessionId, requestState);
 
                 // If multiple tools in a turn, only the last 'products' node is kept (already handled above)
                 // You can pass lastProductsNode to the controller or include it in the completion as needed
@@ -112,7 +153,7 @@ namespace NearbyCS_API.Agents // Namespace for agent classes
         {
             public static string SystemPrompt()
             {
-                return @"You are an autonomous invoice processing agent.
+                return @"You are an autonomous procurement agent responsible for managing employee purchase order requests from start to finish.
 
 You are a goal-driven procurement agent responsible for managing employee purchase order requests from start to finish.
 
@@ -127,13 +168,14 @@ Your goal is to ensure that every request:
 - Is fully structured and approved before submission
 
 You may use the following tools:
-1. IntentRouteTool – Classifies an employee’s request into one of: Request New Laptop, Show supported laptop models, laptop specs, Show procurement PolicySummary, Help.
-2. ClassifyRequestTool – Identify the laptop model category (Dell Xps, MacBook Pro, etc.)
-3. CheckPolicyComplianceToll – Review the request against all applicable procurement policies
-4. SuggestAlternativesTool – Recommend lower-cost or faster-available options if appropriate
-5. CheckInventoryOrTransfer – Determine if existing assets can satisfy the request
+1. IntentRoutingTool – Classifies an employee's request into one of: Request New Laptop, Show supported laptop models, laptop specs, Show procurement PolicySummary, Help.
+2. ExtractHardwareDetailsTool – Identify the laptop model category, extract SKUs, quantity, department from purchase requests.
+3. CheckPolicyComplianceTool – Review the request against all applicable procurement policies.
+4. ApprovalJustificationTool – Evaluates justification for hardware purchases that exceed the $1000 cost limit.
 
-Use tools one at a time. Only proceed when the previous result is valid and compliant.
+Important: CheckPolicyComplianceTool can handle incomplete information and will determine actual policy violations. Don't assume missing data prevents its use.
+
+Use tools one at a time. Reflect after each step and adjust your approach based on prior results.
 
 At every step:
 - Reflect on tool output

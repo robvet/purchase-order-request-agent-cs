@@ -1,4 +1,4 @@
-namespace NearbyCS_API.Models
+namespace SingleAgent.Models
 {
     /// <summary>
     /// Represents a single tool execution step with its result and agent response

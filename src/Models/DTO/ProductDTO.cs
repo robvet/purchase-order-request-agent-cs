@@ -1,4 +1,4 @@
-﻿namespace NearbyCS_API.Models.DTO
+﻿namespace SingleAgent.Models.DTO
 {
    public class ProductDTO
    {

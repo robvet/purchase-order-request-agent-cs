@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 
-namespace NearbyCS_API.Utlls
+namespace SingleAgent.Utlls
 {
     public static class PromptLoader
     {
@@ -23,7 +23,7 @@ namespace NearbyCS_API.Utlls
 }
 
 // Global prompt loader for root-level prompts
-namespace NearbyCS_API.Prompting
+namespace SingleAgent.Prompting
 {
     public static class GlobalPromptLoader
     {

@@ -1,12 +1,12 @@
 ﻿using Microsoft.SemanticKernel;
-using NearbyCS_API.Agents;
-using NearbyCS_API.Models.DTO;
-using NearbyCS_API.Storage.Contract;
+using SingleAgent.Agents;
+using SingleAgent.Models.DTO;
+using SingleAgent.Storage.Contract;
 using System.ComponentModel;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace NearbyCS_API.Tools
+namespace SingleAgent.Future.Tools
 {
     public class SecondChoiceOptimizerTool
     {

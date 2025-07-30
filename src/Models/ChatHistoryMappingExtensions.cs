@@ -1,7 +1,7 @@
 ﻿using Microsoft.SemanticKernel.ChatCompletion;
-using NearbyCS_API.Models.DTO;
+using SingleAgent.Models.DTO;
 
-namespace NearbyCS_API.Models
+namespace SingleAgent.Models
 {
     public static class ChatHistoryMappingExtensions
     {

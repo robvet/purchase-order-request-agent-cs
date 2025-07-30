@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace NearbyCS_API.Utlls
+namespace SingleAgent.Utlls
 {
     /// <summary>
     /// Provides resilient JSON property extraction methods with smart defaults.
