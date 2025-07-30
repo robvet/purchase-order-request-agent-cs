@@ -33,13 +33,15 @@ var configuration = new ConfigurationBuilder()
 builder.Services.AddLogging(config =>
 {
     config.AddConsole();
-    config.SetMinimumLevel(LogLevel.Error);
+    config.SetMinimumLevel(LogLevel.Information); // Changed from Error to Information
 });
 
 // Retrieve required secrets from user secrets
+Console.WriteLine("Starting application...");
 string openAIApiKey = configuration["openai_apikey"] ?? throw new InvalidOperationException("Missing required secret: 'openai_apikey'.");
 string deploymentName = configuration["openai_deploymentname"] ?? throw new InvalidOperationException("Missing required secret: 'openai_deploymentname'.");
 string endpoint = configuration["openai_endpoint"] ?? throw new InvalidOperationException("Missing required secret: 'openai_endpoint'.");
+Console.WriteLine("Successfully loaded configuration secrets.");
 
 /// Configure Semantic Kernel
 var kernelBuilder = Kernel.CreateBuilder();
@@ -131,7 +133,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// Comment out HTTPS redirection for Container Apps - ingress handles HTTPS
+// app.UseHttpsRedirection();
 
 app.UseSession();
 
