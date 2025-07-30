@@ -1,0 +1,39 @@
+name: Build and Push Docker Image to Azure Container Registry
+
+on:
+  push:
+    branches:
+      - main
+      - feature-branch-fix-flow
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Log in to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Log in to Azure Container Registry
+        run: |
+          az acr login --name containerregistryacr
+
+      - name: Build Docker image
+        run: |
+          docker build -f src/Dockerfile -t ${{ secrets.ACR_LOGIN_SERVER }}/purchase-order-request-agent:${{ github.sha }} -t ${{ secrets.ACR_LOGIN_SERVER }}/purchase-order-request-agent:latest .
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/purchase-order-request-agent:${{ github.sha }}
+          docker push ${{ secrets.ACR_LOGIN_SERVER }}/purchase-order-request-agent:latest

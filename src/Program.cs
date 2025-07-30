@@ -1,15 +1,15 @@
 using Microsoft.SemanticKernel;
-using NearbyCS_API.Agents;
-using NearbyCS_API.Contracts;
-using NearbyCS_API.Models;
-using NearbyCS_API.Models.DTO;
-using NearbyCS_API.Prompting;
-using NearbyCS_API.Storage.Contract;
-using NearbyCS_API.Storage.Providers;
-using NearbyCS_API.Telemetry;
-using NearbyCS_API.Tools;
-using NearbyCS_API.Uiltities;
-using NearbyCS_API.Utlls;
+using SingleAgent.Agents;
+using SingleAgent.Contracts;
+using SingleAgent.Models;
+using SingleAgent.Models.DTO;
+using SingleAgent.Prompting;
+using SingleAgent.Storage.Contract;
+using SingleAgent.Storage.Providers;
+using SingleAgent.Telemetry;
+using SingleAgent.Tools;
+using SingleAgent.Uiltities;
+using SingleAgent.Utlls;
 using System.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -33,27 +33,32 @@ var configuration = new ConfigurationBuilder()
 builder.Services.AddLogging(config =>
 {
     config.AddConsole();
-    config.SetMinimumLevel(LogLevel.Error);
+    config.SetMinimumLevel(LogLevel.Information); // Changed from Error to Information
 });
 
 // Retrieve required secrets from user secrets
-string openAIApiKey = configuration["openai-apikey"] ?? throw new InvalidOperationException("Missing required secret: 'openai-apikey'.");
-string deploymentName = configuration["openai-deploymentname"] ?? throw new InvalidOperationException("Missing required secret: 'openai-deploymentname'.");
-string endpoint = configuration["openai-endpoint"] ?? throw new InvalidOperationException("Missing required secret: 'openai-endpoint'.");
+Console.WriteLine("Starting application...");
+string key = configuration["key"] ?? throw new InvalidOperationException("Missing required secret: 'key'.");
+string deployment = configuration["deployment"] ?? throw new InvalidOperationException("Missing required secret: 'deployment'.");
+string endpoint = configuration["endpoint"] ?? throw new InvalidOperationException("Missing required secret: 'endpoint'.");
+Console.WriteLine("Successfully loaded configuration secrets.");
 
-// Configure Semantic Kernel
+/// Configure Semantic Kernel
 var kernelBuilder = Kernel.CreateBuilder();
 
 kernelBuilder.AddAzureOpenAIChatCompletion(
-    deploymentName: deploymentName,
+    deploymentName: deployment,
     endpoint: endpoint,
-    apiKey: openAIApiKey
+    apiKey: key
 );
 
 // Register tools with the kernel
-kernelBuilder.Plugins.AddFromType<IntentRoutingTool>();  
+kernelBuilder.Plugins.AddFromType<IntentRoutingTool>();
+kernelBuilder.Plugins.AddFromType<ExtractHardwareDetailsTool>();
+kernelBuilder.Plugins.AddFromType<CheckPolicyComplianceTool>();
+kernelBuilder.Plugins.AddFromType<ApprovalJustificationTool>();
+
 //kernelBuilder.Plugins.AddFromType<ClassifyRequestTool>();
-//kernelBuilder.Plugins.AddFromType<CheckPolicyComplianceTool>();
 //kernelBuilder.Plugins.AddFromType<ShowQualifiedProductsTool>();
 //kernelBuilder.Plugins.AddFromType<SecondChoiceOptimizerTool>();
 //kernelBuilder.Plugins.AddFromType<SubmitToERPTool>();
@@ -128,7 +133,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// Comment out HTTPS redirection for Container Apps - ingress handles HTTPS
+// app.UseHttpsRedirection();
 
 app.UseSession();
 

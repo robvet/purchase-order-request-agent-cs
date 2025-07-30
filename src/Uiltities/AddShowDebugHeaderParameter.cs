@@ -1,7 +1,7 @@
 ﻿using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
 
-namespace NearbyCS_API.Uiltities
+namespace SingleAgent.Uiltities
 {
     public class AddShowDebugHeaderParameter : IOperationFilter
     {

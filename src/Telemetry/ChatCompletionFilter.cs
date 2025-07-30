@@ -1,7 +1,7 @@
 ﻿using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Services;
 
-namespace NearbyCS_API.Telemetry
+namespace SingleAgent.Telemetry
 {
 
     //******************

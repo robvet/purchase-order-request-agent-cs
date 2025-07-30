@@ -1,6 +1,6 @@
-﻿using NearbyCS_API.Models.DTO;
+﻿using SingleAgent.Models.DTO;
 
-namespace NearbyCS_API.Storage.Contract
+namespace SingleAgent.Storage.Contract
 {
     public interface IProductRepository
     {

@@ -1,4 +1,4 @@
-﻿namespace NearbyCS_API.Tools
+﻿namespace SingleAgent.Future.Tools
 {
     // List all agent intents (“what you can do here”)
 

@@ -1,7 +1,7 @@
-﻿using NearbyCS_API.Models.DTO;
-using NearbyCS_API.Storage.Contract;
+﻿using SingleAgent.Models.DTO;
+using SingleAgent.Storage.Contract;
 
-namespace NearbyCS_API.Storage.Providers
+namespace SingleAgent.Storage.Providers
 {
     public class InMemoryProductRepository : IProductRepository
     {
@@ -253,7 +253,8 @@ namespace NearbyCS_API.Storage.Providers
                 Sku = p.Sku,
                 Name = p.Name,
                 Description = p.Description,
-                Cost = p.Cost
+                Cost = p.Cost,
+                IsAvailable = p.IsAvailable  // 🚨 BUG FIX: Include IsAvailable in response
             }).ToList());
 
         public Task<List<ProductDTO>> GetAllProductsSummaryViewAsync() => 
@@ -262,7 +263,8 @@ namespace NearbyCS_API.Storage.Providers
             Sku = p.Sku,
             Name = p.Name,
             Description = p.Description,
-            Cost = p.Cost
+            Cost = p.Cost,
+            IsAvailable = p.IsAvailable  // 🚨 BUG FIX: Include IsAvailable
         }).ToList());
 
         public Task<List<ProductDTO>> GetAlternativeProductsAsync() =>

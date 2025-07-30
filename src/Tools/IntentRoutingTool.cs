@@ -3,7 +3,7 @@ using System.ComponentModel;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace NearbyCS_API.Tools
+namespace SingleAgent.Tools
 {
     /// <architecture = "Intent vs. Entities" >
     ///   As emphasized in both NLU design and Semantic Kernel orchestration patterns, intent 
@@ -79,7 +79,7 @@ namespace NearbyCS_API.Tools
             public static string IntentRouterPrompt(string userPromptInput)
             {
                 return @"You are an intent-and-entity extractor.
-User input: {{$userPromptInput}}
+User input: {{userPromptInput}}
 
 Return STRICTLY valid JSON:
 

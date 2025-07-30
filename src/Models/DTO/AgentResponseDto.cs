@@ -1,7 +1,7 @@
-﻿using NearbyCS_API.Models.DTO;
+﻿using SingleAgent.Models.DTO;
 using System.Text.Json.Nodes;
 
-namespace NearbyCS_API.Models
+namespace SingleAgent.Models
 {
     public class AgentResponseDto
     {
@@ -19,5 +19,10 @@ namespace NearbyCS_API.Models
         public List<string> AgentLogs { get; set; } = new();
         public List<string> Telemetry { get; set; } = new();
         public List<ToolStepSummary> ToolSteps { get; set; } = new();
+    }
+
+    public class FunctionDebugDto
+    {
+        public List<string> FormattedOutput { get; set; } = new();
     }
 }

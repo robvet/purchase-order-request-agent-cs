@@ -1,7 +1,7 @@
-﻿using NearbyCS_API.Models.DTO;
-using NearbyCS_API.Storage.Contract;
+﻿using SingleAgent.Models.DTO;
+using SingleAgent.Storage.Contract;
 
-namespace NearbyCS_API.Storage.Providers
+namespace SingleAgent.Storage.Providers
 {
     public class CosmosDbProductRepository : IProductRepository
     {
