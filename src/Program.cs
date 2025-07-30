@@ -29,6 +29,9 @@ var configuration = new ConfigurationBuilder()
     .AddUserSecrets<Program>()
     .Build();
 
+
+
+
 // Configure logging
 builder.Services.AddLogging(config =>
 {
