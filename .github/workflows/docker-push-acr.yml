@@ -3,9 +3,9 @@ name: Build and Push Docker Image to Azure Container Registry
 on:
   push:
     branches:
-      - main
-      - feature-branch-fix-flow
+      - main      
 
+      
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
