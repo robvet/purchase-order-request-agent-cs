@@ -131,11 +131,9 @@ builder.Services.AddScoped<IPurchaseOrderAgent, PurchaseOrderAgent>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+// Enable Swagger for demo purposes
+app.UseSwagger();
+app.UseSwaggerUI();
 
 // Comment out HTTPS redirection for Container Apps - ingress handles HTTPS
 // app.UseHttpsRedirection();
