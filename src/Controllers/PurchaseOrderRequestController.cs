@@ -42,8 +42,8 @@ namespace SingleAgent.Controllers
         }
 
         [HttpPost("ProcessPurchaseRequest")]
-        public async Task<IActionResult> ProcessPurchaseRequestAsync([FromBody] string userInputPrompt,
-                                                                     [FromHeader(Name = "showdebug")] bool showDebug = false)
+        public async Task<IActionResult> ProcessPurchaseRequestAsync([FromBody, System.ComponentModel.DefaultValue("I need a Dell XPS")] string userInputPrompt,
+                                                                     [FromHeader(Name = "showdebug")] bool showDebug = true)
         {
             try
             {

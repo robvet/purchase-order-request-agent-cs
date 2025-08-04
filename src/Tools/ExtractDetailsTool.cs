@@ -26,13 +26,13 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 namespace SingleAgent.Tools
 {
     [Description("Extracts structured order details—including model, quantity, department, confidence, warnings, errors, and status—from a user's purchase request. Returns a JSON object matching the extraction schema.")]
-    public class ExtractHardwareDetailsTool
+    public class ExtractDetailsTool
     {
         public string Name => "ExtractOrderDetailsTool";
-        private readonly ILogger<ExtractHardwareDetailsTool> _logger; // Logger for this agent
+        private readonly ILogger<ExtractDetailsTool> _logger; // Logger for this agent
         private readonly IProductRepository _productRepository;
 
-        public ExtractHardwareDetailsTool(ILogger<ExtractHardwareDetailsTool> logger, IProductRepository productRepository)
+        public ExtractDetailsTool(ILogger<ExtractDetailsTool> logger, IProductRepository productRepository)
         {
             _logger = logger;
             _productRepository = productRepository;

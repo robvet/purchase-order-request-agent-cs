@@ -57,10 +57,11 @@ kernelBuilder.AddAzureOpenAIChatCompletion(
 );
 
 // Register tools with the kernel
-kernelBuilder.Plugins.AddFromType<IntentRoutingTool>();
-kernelBuilder.Plugins.AddFromType<ExtractHardwareDetailsTool>();
-kernelBuilder.Plugins.AddFromType<CheckPolicyComplianceTool>();
-kernelBuilder.Plugins.AddFromType<ApprovalJustificationTool>();
+kernelBuilder.Plugins.AddFromType<ClassifyIntentTool>();
+kernelBuilder.Plugins.AddFromType<ValidateProductTool>();   
+kernelBuilder.Plugins.AddFromType<ExtractDetailsTool>();
+kernelBuilder.Plugins.AddFromType<CheckComplianceTool>();
+kernelBuilder.Plugins.AddFromType<JustifyApprovalTool>();
 
 //kernelBuilder.Plugins.AddFromType<ClassifyRequestTool>();
 //kernelBuilder.Plugins.AddFromType<ShowQualifiedProductsTool>();

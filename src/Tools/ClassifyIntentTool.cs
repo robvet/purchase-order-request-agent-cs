@@ -5,6 +5,17 @@ using System.Text.Json.Nodes;
 
 namespace SingleAgent.Tools
 {
+    /// <architecture = "Single Responsibilty Principle" >
+    ///   IntentClassificationTool is built to do one thing well: Classify the user's primary attempt 
+    ///   from a know list. Validating or extraction in this step complicates logic and can easily 
+    ///   degrade accuracy for the LM call. 
+    ///   IntentRouterTool is responsible for determining the user's intent based on their input.
+    ///   Entities are not needed yet in this step—they should be extracted later in specialized tools
+    /// </architecture>
+    /// 
+
+
+
     /// <architecture = "Intent vs. Entities" >
     ///   As emphasized in both NLU design and Semantic Kernel orchestration patterns, intent 
     ///   and entity extraction should be distinct steps—each handled by different components/tools.
@@ -12,22 +23,23 @@ namespace SingleAgent.Tools
     ///   Entities are not needed yet in this step—they should be extracted later in specialized tools
     /// </architecture>
 
-    [Description("Determines the category of a user's purchase request (e.g., hardware, software, services) using a language model.")]
-    public class IntentRoutingTool
-    {
-        public string Name => "IntentRouterTool";
-        private readonly ILogger<IntentRoutingTool> _logger; // Logger for this agent
 
-        public IntentRoutingTool(ILogger<IntentRoutingTool> logger)
+
+    [Description("Analyzes a user's natural language input to classify their primary goal. It must return one of the following intents: RequestPurchase, ShowSupportedProducts, ShowSpecs, ShowPolicyComplianceSummary, or Help.")]
+    public class ClassifyIntentTool
+    {
+        private readonly ILogger<ClassifyIntentTool> _logger; // Logger for this agent
+
+        public ClassifyIntentTool(ILogger<ClassifyIntentTool> logger)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger), $"Thrown in {GetType().Name}");
         }
 
         [KernelFunction]
-        [Description("Returns the category and confidence score for a user’s purchase-related request in JSON format.")]
+        [Description("Determines the primary intent and a confidence score for any user request made to the purchasing system.")]
         public async Task<string> DetermineIntentAsync(
             Kernel kernel,
-            [Description("Natural language text describing what the user wants to purchase.")] string userPromptInput)
+            [Description("The initial, unprocessed text query from the user that needs to be classified.")] string userPromptInput)
         {
             try
             {
@@ -53,15 +65,15 @@ namespace SingleAgent.Tools
                 // Parse the model's response
                 var json = JsonNode.Parse(rawJson);
                 var intent = json?["intent"]?.ToString();
-                var confidence= json?["confidence"]?.GetValue<double>() ?? 0.0;
-                var userRequest = json?["userRequest"]?.ToString();
+                var confidence = json?["confidence"]?.GetValue<double>() ?? 0.0;
+                //var product = json?["userRequest"]?.ToString();
                 //var errors = json?["errors"]?.ToString();
 
                 var response = new
                 {
                     intent,
-                    confidence,
-                    userRequest
+                    confidence
+                    //product
                 };
                 return JsonSerializer.Serialize(response);
             }
@@ -78,30 +90,61 @@ namespace SingleAgent.Tools
         {
             public static string IntentRouterPrompt(string userPromptInput)
             {
-                return @"You are an intent-and-entity extractor.
+                return @"You are a highly specialized AI assistant for an corporate purchasing system. 
+Your only task is to analyze the user's input and classify their primary intent.
+
 User input: {{userPromptInput}}
 
-Return STRICTLY valid JSON:
+### Intents
+ - **RequestPurchase**: The user wants to buy or order a new item.
+ - **ShowSupportedProducts**: The user is asking for a list of available products.
+ - **ShowSpecs**: The user is asking for the technical specifications of a specific product.
+ - **ShowComplianceRules**: The user is asking about the company's purchasing policy.
+ 
+- confidence: A float value between 0.0 and 1.0 indicating how confident the model is in its classification.
+userRequest: The original user request text, for reference.
 
-- intent: one of [ RequestPurchase, ShowSupportedModels, ShowSpecs, ShowPolicySummary, Help ]
-- confidence: float between 0 and 1
-- userRequest: the user's request text
-- errors: empty or list of strings
+- userRequest: {{userPromptInput}}
 
-Example:
+### JSON Output
+Return STRICTLY valid JSON with the following structure:
+{
+  ""intent"": ""One of the intents listed above"",
+  ""confidence"": 0.0
+  ""userRequest"": ""The original user request text"",
+}
+
+### Examples
+
+**User Input**: ""I need to order a new laptop for a new hire""
+**JSON Output**:
+{
+  ""intent"": ""RequestPurchase"",
+  ""confidence"": 0.98
+}
+
+---
+
+**User Input**: ""What are the specs for the MBP-16-M3?""
+**JSON Output**:
 {
   ""intent"": ""ShowSpecs"",
-  ""entities"": { ""model"": ""MBP-16-M3"" },
-  ""confidence"": 0.92,
-  ""userRequest"": ""What are the specs for the MBP-16-M3?"",
-  ""errors"": []
+  ""confidence"": 0.99
+}
+
+---
+
+**User Input**: ""Show me the products that are available""
+**JSON Output**:
+{
+  ""intent"": ""ShowSupportedProducts"",
+  ""confidence"": 0.95
 }";
             }
         }
-
     }
 }
-
+ 
 //// Output format
 //{
 //    "intent": "ShowSpecs",
