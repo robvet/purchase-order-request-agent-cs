@@ -4,7 +4,7 @@ using System.Text.Json;
 
 namespace SingleAgent.Tools
 {
-    public class ApprovalJustificationTool
+    public class JustifyApprovalTool
     {
         public string Name => "ApprovalJustificationTool";
 

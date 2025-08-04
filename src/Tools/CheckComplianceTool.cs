@@ -5,7 +5,7 @@ using System.ComponentModel;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-public class CheckPolicyComplianceTool  
+public class CheckComplianceTool  
 {
     public string Name => "CheckPolicyCompliance";
    
@@ -127,7 +127,6 @@ You are a compliance reasoning agent responsible for determining whether a purch
 4. Laptop requests are limited to one per employee every 3 years.
 5. Only pre-approved vendors may be used for laptops, desktops, and servers.
 8. Any single requisition exceeding $50,000 must be routed to Finance VP for approval.
-9. Recurring SaaS purchases must be reviewed annually before renewal.
 10. Bulk orders over 25 units must include supplier discount verification.
 11. Desktop computers are not allowed for employees.
 12. Hardware upgrades must be justified by age (minimum 36-month lifecycle).
