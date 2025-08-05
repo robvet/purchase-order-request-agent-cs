@@ -84,7 +84,12 @@ namespace SingleAgent.Models
             
             foreach (var call in _functionCalls)
             {
-                // Add two empty lines before each function block for visual separation
+                // Add a blank line before each new function block for visual separation
+                if (output.Any())
+                {
+                    output.Add(string.Empty);
+                    output.Add(string.Empty);
+                }
                 
                 output.Add($"Function: {call.Name}");
                 output.Add("Input:");

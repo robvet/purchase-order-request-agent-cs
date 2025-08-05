@@ -50,7 +50,7 @@ namespace SingleAgent.Tools
                         // If denied but no suggestions, add a helpful fallback
                         var deniedResponse = new
                         {
-                            approved = false,
+                            justification_approved = false,
                             reason = root.GetProperty("reason").GetString(),
                             message = "Your justification needs more specific details to warrant the premium cost.",
                             suggestions = new[]
@@ -65,14 +65,24 @@ namespace SingleAgent.Tools
                         return JsonSerializer.Serialize(deniedResponse);
                     }
                     
-                    return rawJson;
+                    // To maintain a consistent state object, we will rename 'approved' to 'justification_approved'
+                    var response = new
+                    {
+                        justification_approved = root.GetProperty("approved").GetBoolean(),
+                        reason = root.GetProperty("reason").GetString(),
+                        message = root.TryGetProperty("message", out var messageElement) ? messageElement.GetString() : null,
+                        suggestions = root.TryGetProperty("suggestions", out var suggestionsElement) 
+                            ? suggestionsElement.EnumerateArray().Select(s => s.GetString()).ToArray() 
+                            : null
+                    };
+                    return JsonSerializer.Serialize(response);
                 }
                 catch (JsonException)
                 {
                     // If parsing fails, return a structured error response with helpful suggestions
                     var fallbackResponse = new
                     {
-                        approved = false,
+                        justification_approved = false,
                         reason = "Unable to process justification properly",
                         message = "Please provide a clearer justification for this hardware purchase.",
                         suggestions = new[]
@@ -93,7 +103,7 @@ namespace SingleAgent.Tools
             {
                 var errorResponse = new
                 {
-                    approved = false,
+                    justification_approved = false,
                     reason = $"Justification evaluation failed: {ex.Message}",
                     error = "evaluation_error"
                 };
@@ -126,12 +136,18 @@ DENY if the justification:
 - Appears to be personal preference
 
 ### Instructions:
+- **DEMO MODE**: For demonstration purposes, if the justification mentions work-related tasks, productivity, or development, lean towards approving the request. The goal is to show the workflow, not to be overly critical of the justification.
 - Analyze the justification carefully
 - Consider if the premium cost is warranted for the stated use case
 - If DENYING, provide 5 specific suggestions that could help the user get approved
 - Suggestions should be tailored to the user's apparent intent and the specific item requested
 - Focus on actionable advice that addresses common approval criteria
 
+### Examples of Strong Justifications:
+- **For a Developer:** ""My current machine struggles to run multiple Docker containers and a local Kubernetes cluster for our microservices architecture. Compiling the backend services takes over 15 minutes, significantly slowing down my development loop. The requested laptop with 32GB of RAM and a faster processor will reduce compile times to under 5 minutes and allow me to run the full development stack locally, improving my productivity by an estimated 20%.""
+- **For a Video Editor:** ""I am required to edit 4K video footage for our marketing campaigns. My current workstation cannot handle real-time playback of 4K timelines, and rendering a 5-minute video takes over 4 hours. This delays feedback cycles and project delivery. The requested Mac Studio has a dedicated media engine that will provide smooth 4K editing and cut render times by an estimated 75%, allowing us to produce content faster.""
+- **For a Data Scientist:** ""I work with large datasets (50GB+) and complex machine learning models in Python and R. My current laptop's 16GB of RAM is a constant bottleneck, causing frequent crashes and forcing me to downsample data, which can skew model accuracy. The requested machine with 64GB of RAM and a powerful GPU will allow me to work with full datasets and train models significantly faster, leading to more accurate insights and quicker project turnaround.""
+ 
 ### Response Format:
 If APPROVED, return:
 {
@@ -150,23 +166,9 @@ If DENIED, return:
     ""<suggestion 2 - specific and actionable>"",
     ""<suggestion 3 - specific and actionable>"",
     ""<suggestion 4 - specific and actionable>"",
-    ""<suggestion 5 - specific and actionable>"",
+    ""<suggestion 5 - specific and actionable>""
   ]
 }
-
-### Example Suggestions for Common Scenarios:
-
-For development work:
-- ""Specify which development tools require premium hardware (e.g., 'Android Studio compilation takes 45 minutes on current machine')""
-- ""Explain specific performance bottlenecks affecting productivity (e.g., 'Current laptop crashes during Docker builds')""
- 
-For creative work:
-- ""Detail file sizes and rendering times for your typical projects (e.g., '4K video projects take 8 hours to export')""
-- ""Mention specific software requirements (e.g., 'Adobe Premiere requires 32GB RAM for smooth 4K editing')""
- 
-For analysis work:
-- ""Quantify dataset sizes and processing times (e.g., 'Processing 10GB datasets takes 6 hours currently')"",
-- ""Specify software requirements (e.g., 'Machine learning models require GPU acceleration')"",
  
 Return ONLY a valid JSON object—no additional text, explanations, or commentary.
 ";

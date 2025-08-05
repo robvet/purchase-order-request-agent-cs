@@ -1,10 +1,7 @@
 ﻿using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.ChatCompletion;
 using SingleAgent.Models;
-using SingleAgent.Storage.Contract;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text.RegularExpressions;
 
 namespace SingleAgent.Telemetry
 {
@@ -37,6 +34,13 @@ namespace SingleAgent.Telemetry
             }
 
             var function = context.Function;
+
+            // Do not capture telemetry for internal Semantic Kernel calls
+            if (function.Name.StartsWith("InvokePromptAsync"))
+            {
+                await next(context);
+                return;
+            }
             
             // Extract parameters for telemetry - simple and clean
             var parameters = context.Arguments?.ToDictionary(kvp => kvp.Key, kvp => (object)(kvp.Value?.ToString() ?? "")) 

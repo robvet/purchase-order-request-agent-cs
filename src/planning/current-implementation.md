@@ -116,3 +116,94 @@ Does this clarify why they need to be separate?
  - HelpTool	List all agent intents (“what you can do here”)
  - QuotePrice	Give price for model/upgrades
  - SaveDraftRequest	Save current progress for later
+
+
+
+
+
+ Device Return/Decommission Check
+ - 
+Here’s a focused strategy for the Device Return/Decommission Check step—designed for clarity, compliance, and minimal user friction:
+
+1. Prompt User for Asset Return
+After passing cost and asset age checks, agent asks:
+
+“Will you be returning your current laptop? Please confirm.”
+
+2. Branch on User Response
+If “Yes”:
+
+Prompt: “Please enter the serial number or asset tag of the laptop you’ll be returning.”
+
+Log this for downstream tracking and IT coordination.
+
+If “No”:
+
+Prompt: “Please specify the reason:
+
+Lost
+
+Stolen
+
+Damaged beyond repair
+
+Device already returned
+
+Other (please explain)”
+
+Capture and log the reason.
+
+3. Automate Business Rule Handling
+If asset info is provided:
+
+Pass details to IT asset management for pickup/decommission scheduling.
+
+If marked lost/stolen:
+
+Automatically flag for compliance/security follow-up (e.g., incident report).
+
+If damaged:
+
+Prompt for damage details (and photo, if possible); route for further review if needed.
+
+4. Audit and Enforcement
+Store all return/decommission answers with the request.
+
+Block purchase if no return or reason is provided.
+
+Agentic AI Extensions
+Auto-fill previous asset info from inventory if available.
+
+If user hesitates, provide reminders about company policy:
+“Per IT policy, new laptops require return or documented loss/damage of your current device.”
+
+If reason is ambiguous, escalate to human (e.g., IT asset manager) for review.
+
+Structured Output Schema Example
+json
+Copy
+Edit
+{
+  "deviceReturnStatus": "to_return" | "lost" | "stolen" | "damaged" | "already_returned" | "other",
+  "assetTag": "ABC12345",
+  "additionalInfo": "Screen shattered after accident.",
+  "requiresFollowup": true
+}
+
+Summary Table
+Scenario	    Action/Prompt	                            Next Step
+Will return	    Ask for asset tag/serial number	            Log, schedule pickup
+Lost/Stolen	    Ask for details; flag for compliance	    Incident process
+Damaged	        Ask for explanation/photo; flag for review	IT/Asset review
+Other/Unknown	Require explanation, escalate if unclear	Human follow-up
+
+
+This approach ensures:
+
+Every laptop is tracked or accounted for
+
+Policy is enforced without excess friction
+
+You build a clear audit/compliance trail
+
+User gets a guided, agentic experience
