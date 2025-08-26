@@ -1,4 +1,3 @@
-
 name: Deploy to Azure Container App
 
 on:
@@ -6,18 +5,36 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Log in to Azure
         uses: azure/login@v1
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy to Azure Container App
+      - name: Ensure Azure CLI is installed
         run: |
+          az --version
+
+      # Optional: Debug secrets (remove if not needed)
+      # - name: Debug secrets
+      #   run: |
+      #     echo "ACR_LOGIN_SERVER=${{ secrets.ACR_LOGIN_SERVER }}"
+
+      - name: Deploy to Azure Container App
+        env:
+          IMAGE_NAME: ${{ secrets.ACR_LOGIN_SERVER }}/purchase-order-request-agent:latest
+        run: |
+          set -e
           az containerapp update \
             --name porequestservices-aca \
             --resource-group PORequestServices-cs \
-            --image ${{ secrets.ACR_LOGIN_SERVER }}/purchase-order-request-agent:latest
+            --image $IMAGE_NAME
