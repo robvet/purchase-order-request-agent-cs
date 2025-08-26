@@ -35,7 +35,7 @@ namespace SingleAgent.Controllers
             }
         }
 
-        [HttpGet(Name = "HealthCheck")]
+        [HttpGet("HealthCheck")]
         public async Task<string> HealthCheck()
         {
             return "OK";

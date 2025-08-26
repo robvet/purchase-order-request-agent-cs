@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.DataProtection.KeyManagement;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
@@ -6,11 +5,8 @@ using SingleAgent.Contracts;
 using SingleAgent.Models;
 // State store interface
 using SingleAgent.Storage.Contract;
-using System.Globalization;
-using System.Security.Principal;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Text.RegularExpressions;
 
 namespace SingleAgent.Agents // Namespace for agent classes
 {
@@ -49,9 +45,8 @@ namespace SingleAgent.Agents // Namespace for agent classes
                 // Fetch chat history for the session or create a new one
                 var chatHistory = await _stateStore.GetChatHistoryAsync(sessionId) ?? new ChatHistory();
 
-                // TODO: FUTURE COMPLEXITY - Dual state management for enterprise features
                 // Load existing purchase request state or create new one
-                // var requestState = await _stateStore.GetRequestStateAsync(sessionId) ?? new PurchaseRequestState();
+                var requestState = ReconstructStateFromHistory(chatHistory);
 
                 // Add system prompt as the first message if history is empty
                 if (chatHistory.Count == 0)
@@ -59,7 +54,9 @@ namespace SingleAgent.Agents // Namespace for agent classes
                     chatHistory.AddSystemMessage(PromptTemplate.SystemPrompt());
                 }
 
-                userInputPrompt = PromptTemplate.UserPrompt().Replace("{{userInputPrompt}}", userInputPrompt);
+                userInputPrompt = PromptTemplate.UserPrompt()
+                    .Replace("{{userInputPrompt}}", userInputPrompt)
+                    .Replace("{{workflowState}}", JsonSerializer.Serialize(requestState, _jsonOptions));
 
                 // Add the user's message to the chat history
                 chatHistory.AddUserMessage(userInputPrompt);
@@ -72,16 +69,7 @@ namespace SingleAgent.Agents // Namespace for agent classes
                 {
                     ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions,
                     Temperature = 0.0
-                    //ResponseFormat = new Dictionary<string, object>
-                    //{
-                    //    { "type", "json_object" }
-                    //}
-                    // Ensure response is in JSON format
-                    // Lower temperature for more deterministic responses
                 };
-
-                // 
-                var formattedHistory = FormatChatHistory(chatHistory, _jsonOptions);
 
                 // Get the AI's response to the chat history
                 var result = await chatService.GetChatMessageContentAsync(
@@ -91,141 +79,11 @@ namespace SingleAgent.Agents // Namespace for agent classes
 
                 string completion = result.Content ?? ""; // Get the completion text
 
-                // Track the last 'products' node and 'reflection' if present in tool results
-                JsonNode? lastProductsNode = null;
-                string? lastReflection = null;
-                try
-                {
-                    var json = JsonNode.Parse(completion);
-                    if (json is JsonObject obj)
-                    {
-                        if (obj.ContainsKey("products"))
-                        {
-                            lastProductsNode = obj["products"];
-                        }
-                        if (obj.ContainsKey("reflection"))
-                        {
-                            lastReflection = obj["reflection"]?.ToString();
-                        }
-                    }
-                }
-                catch { /* Ignore parse errors here, handled elsewhere */ }
-
-                // TODO: DEMO MODE - Keep telemetry simple for now, add back later
-                // Log the completion
-                // telemetryCollector.Add($"[AGENT_RESPONSE] {completion}");
-
                 // Add the assistant's response to the chat history
                 chatHistory.AddAssistantMessage(completion);
 
                 // Save the updated chat history for the session
                 await _stateStore.SaveChatHistoryAsync(sessionId, chatHistory);
-
-                ////// TODO: DEMO MODE - Debug inspection point for chat history state
-                ////// ?? BREAKPOINT HERE: Inspect chatHistory and completion for debugging
-                ////var debugChatState = new
-                ////{
-                ////    SessionId = sessionId,
-                ////    MessageCount = chatHistory.Count,
-                ////    LastCompletion = completion,
-                ////    LastReflection = lastReflection, // NEW: Add the extracted reflection
-                ////    ChatMessages = chatHistory.Select((msg, index) => new
-                ////    {
-                ////        Index = index,
-                ////        Role = msg.Role.ToString(),
-                ////        Content = msg.Content?.Substring(0, Math.Min(msg.Content.Length, 200)) + (msg.Content?.Length > 200 ? "..." : "")
-                ////    }).ToList(),
-                ////    FullChatHistoryJson = JsonSerializer.Serialize(chatHistory.Select(msg => new
-                ////    {
-                ////        Role = msg.Role.ToString(),
-                ////        Content = msg.Content
-                ////    }), _jsonOptions)
-                ////};
-
-                //// Manual formatting for easy reading
-                //var debugOutput = new System.Text.StringBuilder();
-                //debugOutput.AppendLine($"SessionId: {debugChatState.SessionId}");
-                //debugOutput.AppendLine($"MessageCount: {debugChatState.MessageCount}");
-                //debugOutput.AppendLine($"LastCompletion: {debugChatState.LastCompletion}");
-                //debugOutput.AppendLine($"LastReflection: {debugChatState.LastReflection}");
-                //debugOutput.AppendLine("ChatMessages:");
-                //foreach (var msg in debugChatState.ChatMessages)
-                //{
-                //    debugOutput.AppendLine($"  Index: {msg.Index}");
-                //    debugOutput.AppendLine($"  Role: {msg.Role}");
-                //    debugOutput.AppendLine($"  Content: {msg.Content}");
-                //    debugOutput.AppendLine(new string('-', 30));
-                //}
-                //debugOutput.AppendLine("FullChatHistoryJson:");
-                //debugOutput.AppendLine(debugChatState.FullChatHistoryJson);
-
-                //// Output or log debugOutput.ToString()
-                //_logger.LogInformation(debugOutput.ToString());
-
-                //var ouput = debugOutput.ToString();
-
-
-
-
-
-
-
-
-
-
-                ////// Helper function to decode Unicode escapes and replace line breaks
-                ////string UnescapeAndFormatText(string input)
-                ////{
-                ////    if (string.IsNullOrWhiteSpace(input)) return input;
-                ////    // Decode all \uXXXX Unicode escapes
-                ////    string unescaped = Regex.Replace(
-                ////        input,
-                ////        @"\\u([0-9A-Fa-f]{4})",
-                ////        match => ((char)int.Parse(match.Groups[1].Value, NumberStyles.HexNumber)).ToString()
-                ////    );
-                ////    // Replace all literal \r\n and \n with actual new lines
-                ////    unescaped = unescaped.Replace("\\r\\n", Environment.NewLine)
-                ////                         .Replace("\\n", Environment.NewLine)
-                ////                         .Replace("\r\n", Environment.NewLine)
-                ////                         .Replace("\n", Environment.NewLine);
-                ////    return unescaped;
-                ////}
-
-                ////// Manual formatting for easy reading
-                ////var debugOutput = new System.Text.StringBuilder();
-                ////debugOutput.AppendLine($"SessionId: {debugChatState.SessionId}");
-                ////debugOutput.AppendLine($"MessageCount: {debugChatState.MessageCount}");
-                ////debugOutput.AppendLine($"LastCompletion: {UnescapeAndFormatText(debugChatState.LastCompletion)}");
-                ////debugOutput.AppendLine($"LastReflection: {UnescapeAndFormatText(debugChatState.LastReflection)}");
-                ////debugOutput.AppendLine("ChatMessages:");
-                ////foreach (var msg in debugChatState.ChatMessages)
-                ////{
-                ////    debugOutput.AppendLine($"  Index: {msg.Index}");
-                ////    debugOutput.AppendLine($"  Role: {msg.Role}");
-                ////    debugOutput.AppendLine($"  Content: {UnescapeAndFormatText(msg.Content)}");
-                ////    debugOutput.AppendLine(new string('-', 30));
-                ////}
-                ////debugOutput.AppendLine("FullChatHistoryJson:");
-                ////debugOutput.AppendLine(UnescapeAndFormatText(debugChatState.FullChatHistoryJson));
-
-                ////// Output or log debugOutput.ToString()
-                ////_logger.LogInformation(debugOutput.ToString());
-                ////var ouput = debugOutput.ToString();
-
-
-
-
-
-
-                // Set breakpoint on next line to inspect debugChatState in debugger
-                //_logger.LogInformation("Chat state ready for inspection: {MessageCount} messages", debugChatState.MessageCount);
-
-                // TODO: FUTURE COMPLEXITY - Save business state separately from chat history
-                // Save the updated purchase request state for the session
-                // await _stateStore.SaveRequestStateAsync(sessionId, requestState);
-
-                // If multiple tools in a turn, only the last 'products' node is kept (already handled above)
-                // You can pass lastProductsNode to the controller or include it in the completion as needed
 
                 return (completion, chatHistory);
             }
@@ -234,6 +92,74 @@ namespace SingleAgent.Agents // Namespace for agent classes
                 _logger.LogError(ex, "Error in {Class}: {ErrorMessage}", GetType().Name, ex.Message);
                 return ("An unexpected error occurred while processing your request: " + ex.Message, new ChatHistory());
             }
+        }
+
+        private PurchaseRequestState ReconstructStateFromHistory(ChatHistory chatHistory)
+        {
+            var state = new PurchaseRequestState
+            {
+                AdditionalData = new Dictionary<string, object>()
+            };
+
+            var toolMessages = chatHistory.Where(m => m.Role == AuthorRole.Tool).ToList();
+
+            foreach (var toolMessage in toolMessages)
+            {
+                if (string.IsNullOrEmpty(toolMessage.Content)) continue;
+
+                try
+                {
+                    var toolResult = JsonNode.Parse(toolMessage.Content);
+                    if (toolResult == null) continue;
+
+                    // Generic data points
+                    if (toolResult["intent"] != null)
+                    {
+                        state.Intent = toolResult["intent"]?.ToString();
+                        state.AdditionalData["lastCompletedTool"] = "ClassifyIntentTool";
+                        state.Status = "classified";
+                    }
+                    if (toolResult["is_workplace_computer"]?.GetValue<bool>() == true)
+                    {
+                        state.AdditionalData["lastCompletedTool"] = "ValidateProductTool";
+                        state.Status = "validated";
+                    }
+                    if (toolResult["sku"] != null && toolResult["sku"] is JsonArray skuArray)
+                    {
+                        state.MatchedSkus = skuArray.Select(s => s?.ToString()).Where(s => !string.IsNullOrEmpty(s)).ToList()!;
+                        state.AdditionalData["lastCompletedTool"] = "ExtractDetailsTool";
+                        state.Status = "extracted";
+                    }
+                    if (toolResult["quantity"] != null)
+                    {
+                        state.Quantity = toolResult["quantity"]?.GetValue<int>();
+                    }
+                    if (toolResult["department"] != null)
+                    {
+                        state.Department = toolResult["department"]?.ToString();
+                    }
+                    if (toolResult["compliant"] != null)
+                    {
+                        state.AdditionalData["lastCompletedTool"] = "CheckComplianceTool";
+                        state.Status = toolResult["compliant"]?.GetValue<bool>() == true ? "compliant" : "awaiting_justification";
+                    }
+                    if (toolResult["justification_approved"] != null)
+                    {
+                        state.AdditionalData["lastCompletedTool"] = "JustifyApprovalTool";
+                        state.Status = toolResult["justification_approved"]?.GetValue<bool>() == true ? "justification_approved" : "justification_rejected";
+                    }
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogWarning(ex, "Failed to parse tool result from chat history: {Content}", toolMessage.Content);
+                }
+            }
+
+            _logger.LogInformation("Reconstructed State: Status={Status}, LastTool={LastTool}",
+                state.Status,
+                state.AdditionalData.TryGetValue("lastCompletedTool", out var tool) ? tool : "none");
+
+            return state;
         }
 
         /// <architecture = "System Prompt Highlights" >
@@ -260,9 +186,9 @@ You may use the following tools:
 
   1. ClassifyIntentTool – Classifies an employee's request into a specific category: Request product, Show supported products, show product specs, show procurement policies.
   2. ValidateProductTool - Acts as a gatekeeper for the 'Request product' workflow to confirm the requested item is a workplace computer.
-  2. ExtractDetailsTool – Extracts specific details like model, quantity, SKUs from a validated purchase request.
-  3. CheckComplianceTool – Review the request against all applicable procurement policies.
-  4. JustifyApprovalTool – Evaluates the justification for hardware purchases that violate compliance rules.
+  3. ExtractDetailsTool – Extracts specific details like model, quantity, SKUs from a validated purchase request.
+  4. CheckComplianceTool – Review the request against all applicable procurement policies.
+  5. JustifyApprovalTool – Evaluates the justification for hardware purchases that violate compliance rules.
 
 Core Principles:
 
@@ -277,12 +203,23 @@ Workflow Rules:
   •	Confidence Score Check: If the ClassifyIntentTool returns a confidence score below 0.8, you must stop all other actions. Immediately ask the user for clarification about their request.
   •	Purchase Request Validation: If the ClassifyIntentTool identifies the intent as 'RequestPurchase', the ONLY AVAILABLE tool for your next step is ValidateProductTool. You are forbidden from using any other tool, including ExtractDetailsTool, until ValidateProductTool has been successfully executed.
   •	Policy Tool Usage: The CheckComplianceTool can and should be used even if some request information is incomplete. It will determine which policies are applicable based on the available data.
+  •	Justification Requirement: If the CheckComplianceTool returns 'compliant: false', your ONLY next step is to use the JustifyApprovalTool. You must ask the user for a justification first.
+
+Workflow State Awareness:
+
+• If you have access to previous workflow state, use it to continue where you left off
+• Do not repeat tools that have already completed successfully  
+• When asking for clarification, include context from previous steps
+• Example: I found MacBook Pro options earlier. Which size do you prefer: 14 inch or 16 inch?
 ";
             }
 
             public static string UserPrompt()
             {
                 return @"
+Previous Workflow State (if any):
+{{workflowState}}
+
 A new purchase order request has been submitted.
 
 Request Details:
@@ -352,3 +289,47 @@ Do NOT include any text outside the JSON object.
 //6. CheckPolicyCompliance – Review the request against all applicable procurement policies
 //7. SuggestAlternatives – Recommend lower-cost or faster-available options if appropriate
 //8. CheckInventoryOrTransfer – Determine if existing assets can satisfy the request
+
+
+
+////// TODO: DEMO MODE - Debug inspection point for chat history state
+////// ?? BREAKPOINT HERE: Inspect chatHistory and completion for debugging
+////var debugChatState = new
+////{
+////    SessionId = sessionId,
+////    MessageCount = chatHistory.Count,
+////    LastCompletion = completion,
+////    LastReflection = lastReflection, // NEW: Add the extracted reflection
+////    ChatMessages = chatHistory.Select((msg, index) => new
+////    {
+////        Index = index,
+////        Role = msg.Role.ToString(),
+////        Content = msg.Content?.Substring(0, Math.Min(msg.Content.Length, 200)) + (msg.Content?.Length > 200 ? "..." : "")
+////    }).ToList(),
+////    FullChatHistoryJson = JsonSerializer.Serialize(chatHistory.Select(msg => new
+////    {
+////        Role = msg.Role.ToString(),
+////        Content = msg.Content
+////    }), _jsonOptions)
+////};
+
+//// Manual formatting for easy reading
+//var debugOutput = new System.Text.StringBuilder();
+//debugOutput.AppendLine($"SessionId: {debugChatState.SessionId}");
+//debugOutput.AppendLine($"MessageCount: {debugChatState.MessageCount}");
+//debugOutput.AppendLine($"LastCompletion: {debugChatState.LastCompletion}");
+//debugOutput.AppendLine($"LastReflection: {debugChatState.LastReflection}");
+//debugOutput.AppendLine("ChatMessages:");
+//foreach (var msg in debugChatState.ChatMessages)
+//{
+//    debugOutput.AppendLine($"  Index: {msg.Index}");
+//    debugOutput.AppendLine($"  Role: {msg.Role}");
+//    debugOutput.AppendLine($"  Content: {msg.Content}");
+//    debugOutput.AppendLine(new string('-', 30));
+//}
+//debugOutput.AppendLine("FullChatHistoryJson:");
+//debugOutput.AppendLine(debugChatState.FullChatHistoryJson);
+
+
+// If multiple tools in a turn, only the last 'products' node is kept (already handled above)
+// You can pass lastProductsNode to the controller or include it in the completion as needed

@@ -1,4 +1,4 @@
-﻿namespace SingleAgent.Future.Tools
+﻿namespace SingleAgent.Tools
 {
     public class ApproveRequestTool
     {

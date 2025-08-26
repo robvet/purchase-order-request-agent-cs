@@ -1,9 +1,7 @@
 using Microsoft.SemanticKernel;
-using SingleAgent.Storage.Contract;
 using SingleAgent.Utlls;
 using System.ComponentModel;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 public class CheckComplianceTool  
 {
@@ -11,7 +9,7 @@ public class CheckComplianceTool
    
     [KernelFunction]
     [Description("Checks if a purchase request complies with company procurement policies.")]
-    public async Task<string> CheckPolicyComplianceAsync(
+    public async Task<string> CheckComplianceAsync(
         Kernel kernel,
         [Description("Category of the purchase request (e.g., Hardware, Software, Office Supplies)")] string category,
         [Description("Specific item being requested")] string sku,
@@ -26,7 +24,7 @@ public class CheckComplianceTool
                 .Replace("{{Category}}", category)
                 .Replace("{{sku}}", sku)
                 .Replace("{{Quantity}}", quantity.ToString())
-                .Replace("{{UnitCost}}", unitCost.ToString())
+                .Replace("{{UnitCost}}", unitCost.ToString("C"))
                 .Replace("{{Department}}", department);
 
             // Call the kernel to get the model's response
@@ -34,7 +32,7 @@ public class CheckComplianceTool
                 { "Category", category },
                 { "Sku", sku },
                 { "Quantity", quantity.ToString() },
-                { "UnitCost", unitCost.ToString() },
+                { "UnitCost", unitCost.ToString("C") },
                 { "Department", department }
             });
 
@@ -84,7 +82,7 @@ public class CheckComplianceTool
 
     [KernelFunction]
     [Description("Checks if a purchase request complies with company procurement policies using a JSON input.")]
-    public async Task<string> CheckPolicyComplianceFromJsonAsync(
+    public async Task<string> CheckComplianceFromJsonAsync(
         Kernel kernel,
         [Description("JSON string containing purchase request details (category, item, quantity, department, unitCost)")] string jsonInput)
     {
@@ -100,14 +98,15 @@ public class CheckComplianceTool
             var department = JsonPropertyExtractor.ExtractStringProperty(root, "department", "General");
             var unitCost = JsonPropertyExtractor.ExtractDecimalProperty(root, "unitCost", 0m);
 
-            return await CheckPolicyComplianceAsync(kernel, category, sku, quantity, unitCost, department);
+            return await CheckComplianceAsync(kernel, category, sku, quantity, unitCost, department);
         }
         catch (JsonException ex)
         {
             return JsonSerializer.Serialize(new 
             { 
-                error = true, 
-                message = $"Invalid JSON format: {ex.Message}"
+                compliant = false,
+                violations = new[] { $"Invalid JSON format: {ex.Message}" },
+                error = "json_parse_error"
             });
         }
     }
@@ -125,11 +124,13 @@ You are a compliance reasoning agent responsible for determining whether a purch
 1. Hardware purchases must not exceed $1000 per unit.
 2. Hardware requests over 10 units require department head approval.
 4. Laptop requests are limited to one per employee every 3 years.
-5. Only pre-approved vendors may be used for laptops, desktops, and servers.
+5. Desktop computers are not allowed for employees.
+6. Hardware upgrades must be justified by age (minimum 36-month lifecycle).
+7. Only pre-approved vendors may be used for laptops, desktops, and servers.
 8. Any single requisition exceeding $50,000 must be routed to Finance VP for approval.
-10. Bulk orders over 25 units must include supplier discount verification.
-11. Desktop computers are not allowed for employees.
-12. Hardware upgrades must be justified by age (minimum 36-month lifecycle).
+9. Bulk orders over 25 units must include supplier discount verification.
+10. Desktop computers are not allowed for employees.
+11. Hardware upgrades must be justified by age (minimum 36-month lifecycle).
 13. Any purchase tagged as ""urgent"" will trigger post-purchase audit.
 
 

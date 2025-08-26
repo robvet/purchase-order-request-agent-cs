@@ -1,9 +1,7 @@
 ﻿using Microsoft.SemanticKernel;
-using SingleAgent.Agents;
 using SingleAgent.Storage.Contract;
 using System.ComponentModel;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 
 namespace SingleAgent.Future.Tools
 {

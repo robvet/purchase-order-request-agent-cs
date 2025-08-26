@@ -30,9 +30,6 @@ var configuration = new ConfigurationBuilder()
     .AddEnvironmentVariables()
     .Build();
 
-
-
-
 // Configure logging
 builder.Services.AddLogging(config =>
 {
@@ -72,11 +69,11 @@ kernelBuilder.Plugins.AddFromType<JustifyApprovalTool>();
 //kernelBuilder.Services.AddScoped<TelemetryCollector>();
 // Add this line for the logger
 kernelBuilder.Services.AddLogging();
+
 // Register filter before building
 kernelBuilder.Services.AddSingleton<IFunctionInvocationFilter, TelemetryFunctionFilter>();
 
 kernelBuilder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
-
 kernelBuilder.Services.AddScoped<IProductRepository, InMemoryProductRepository>();
 
 var kernel = kernelBuilder.Build();

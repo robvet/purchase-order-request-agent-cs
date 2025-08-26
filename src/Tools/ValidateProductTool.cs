@@ -1,5 +1,4 @@
 ﻿using Microsoft.SemanticKernel;
-using SingleAgent.Models.DTO;
 using SingleAgent.Storage.Contract;
 using System.ComponentModel;
 using System.Text.Json;
@@ -102,17 +101,13 @@ namespace SingleAgent.Tools
 
                 // Parse the model's response
                 var json = JsonNode.Parse(rawJson);
-                var product = json?["requested_item"];
                 var isWorkplaceComputer = json?["is_workplace_computer"];
                 var confidence = json?["confidence"]?.GetValue<double>() ?? 0.0;
-                var validation_method = json?["message"];
-
-                var sku = json?["sku"]?.AsArray()?.Select(s => s?.ToString()).ToList() ?? new List<string>();
+                var validation_method = json?["validation_method"];
                                
                 // Construct your API response object
                 var response = new
                 {
-                    //product,
                     isWorkplaceComputer,
                     confidence,
                     validation_method
@@ -150,10 +145,9 @@ Output only this JSON. No extra text.
 
 Output schema
 {
-    ""requested_item"": ""string"",
     ""is_workplace_computer"": false,
     ""confidence"": 0.0,
-    ""message"": ""string (only when is_workplace_computer == false)""
+    ""validation_method"": ""string (only when is_workplace_computer == false)""
 }
 
 Confidence guidance: clear in-scope ≥ 0.85; ambiguous but likely in-scope ~0.6–0.8; out-of-scope = 0.
@@ -163,20 +157,18 @@ Confidence guidance: clear in-scope ≥ 0.85; ambiguous but likely in-scope ~0.6
 **User Input**: ""I need to order a new laptop for a new hire""
 **JSON Output**:
 {
-  ""requested_item"": ""string"",
   ""is_workplace_computer"": true,
-  ""confidence"": 100,
-  ""message"": ""Valid Product""
+  ""confidence"": 1.0,
+  ""validation_method"": ""Valid Product""
 }
 
 ---
 
 **User Input**: ""I need a new sailboat""
 {
-  ""requested_item"": ""string"",
   ""is_workplace_computer"": false,
   ""confidence"": 0.0,
-  ""message"": ""This site only processes purchase requests for workplace computers.""
+  ""validation_method"": ""This site only processes purchase requests for workplace computers.""
 }
 
 ---
