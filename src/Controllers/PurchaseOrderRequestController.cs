@@ -47,6 +47,7 @@ namespace SingleAgent.Controllers
             return "OK2";
         }
 
+
         [HttpPost("ProcessPurchaseRequest")]
         public async Task<IActionResult> ProcessPurchaseRequestAsync([FromBody, System.ComponentModel.DefaultValue("I need a Dell XPS")] string userInputPrompt,
                                                                      [FromHeader(Name = "showdebug")] bool showDebug = true)
