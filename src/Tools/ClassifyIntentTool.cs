@@ -35,7 +35,12 @@ namespace SingleAgent.Tools
         [Description("Determines the primary intent and a confidence score for any user request made to the purchasing system.")]
         public async Task<string> DetermineIntentAsync(
             Kernel kernel,
-            [Description("The initial, unprocessed text query from the user that needs to be classified.")] string userPromptInput)
+
+            [Description("The initial, unprocessed text query from the user that needs to be classified. This field is required.")]
+            string userPromptInput,
+
+            [Description("A concise explanation of why this tool is the most appropriate choice for the request, including the specific user need it addresses. This field is required.")]
+            string reasoning)
         {
             try
             {
@@ -52,6 +57,9 @@ namespace SingleAgent.Tools
                         ["userPrompt"] = prompt
                     }
                 );
+
+                if (string.IsNullOrWhiteSpace(reasoning))
+                    throw new ArgumentException("reasoning is required and cannot be empty.");
 
                 _logger.LogInformation("Output from IntentRouterTool: {Output}", result.ToString());
 
