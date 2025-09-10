@@ -19,8 +19,8 @@ using SingleAgent.Uiltities;
 using SingleAgent.Utlls;
 using System.Diagnostics;
 
-
-ILogger? logger = null; // Declare outside try
+// Declare logger outside try here for use in catch block
+ILogger? logger = null; 
 
 try
 {
@@ -43,24 +43,28 @@ try
         .Build();
 
     // Configure logging
+
+
+    // Retrieve Application Insights connection string from user secrets
+    string? appInsightsConnectionString = configuration["application-insights"] ?? throw new InvalidOperationException("Missing required secret: 'ApplicationInsights:ConnectionString'."); ;
+
     builder.Services.AddLogging(config =>
     {
         config.AddConsole();
-        config.SetMinimumLevel(LogLevel.Information); // Changed from Error to Information
-    });
-
-
-    var loggerFactory = LoggerFactory.Create(config =>
-    {
-        config.AddConsole();
         config.SetMinimumLevel(LogLevel.Information);
+
+        if (!string.IsNullOrEmpty(appInsightsConnectionString))
+        {
+            config.AddApplicationInsights(
+                configureTelemetryConfiguration: telemetryConfig =>
+                {
+                    telemetryConfig.ConnectionString = appInsightsConnectionString;
+                },
+                configureApplicationInsightsLoggerOptions: _ => { }
+            );
+        }
     });
-    logger = loggerFactory.CreateLogger("Startup");
-
-    // Example usage
-    logger.LogInformation("Starting application...");
-
-
+        
     // Retrieve required secrets from user secrets
     Console.WriteLine("Starting application...");
 
@@ -76,18 +80,12 @@ try
     /// Configure Semantic Kernel
     var kernelBuilder = Kernel.CreateBuilder();
 
-    //kernelBuilder.AddAzureOpenAIChatCompletion(
-    //    deploymentName: deployment,
-    //    endpoint: endpoint,
-    //    apiKey: key
-    //);
 
     // Determine environment (local or cloud)
     //var environment = configuration["ASPNETCORE_ENVIRONMENT"] ?? "Production";
     //bool isLocal = environment.Equals("Development", StringComparison.OrdinalIgnoreCase);
-
-    var applicationTenantId = configuration["application-tenant"] ?? throw new ArgumentException("Application TenantId is missing");
-    bool isLocalDev = configuration["ASPNETCORE_ENVIRONMENT"]?.Equals("Development", StringComparison.OrdinalIgnoreCase) ?? false;
+    var applicationTenantId = configuration["application-tenant"];
+    bool isLocalDev = configuration["ASPNETCORE_ENVIRONMENT"]?.Equals("Development", StringComparison.OrdinalIgnoreCase)?? false;
 
     // Address situation where application execution and user tenants are different
     // Local processing and application tenant ID is set - set tenant ID for DefaultAzureCredential
@@ -205,6 +203,8 @@ try
     builder.Services.AddScoped<IPurchaseOrderAgent, PurchaseOrderAgent>();
 
     var app = builder.Build();
+
+    logger = app.Services.GetRequiredService<ILogger<Program>>();
 
     // Configure the HTTP request pipeline.
     // Enable Swagger for demo purposes
