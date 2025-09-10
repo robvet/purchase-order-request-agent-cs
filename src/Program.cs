@@ -47,9 +47,14 @@ try
 
     // Retrieve required secrets from user secrets
     Console.WriteLine("Starting application...");
-    string key = configuration["key"] ?? throw new InvalidOperationException("Missing required secret: 'key'.");
-    string deployment = configuration["deployment"] ?? throw new InvalidOperationException("Missing required secret: 'deployment'.");
-    string endpoint = configuration["endpoint"] ?? throw new InvalidOperationException("Missing required secret: 'endpoint'.");
+
+    // Azure OpenAI configuration
+    string openai_key = configuration["openai-key"] ?? throw new InvalidOperationException("Missing required secret: 'openai-key'.");
+    string openai_endpoint = configuration["openai-endpoint"] ?? throw new InvalidOperationException("Missing required secret: 'openai-endpoint'.");
+
+    // Inference deployment name
+    string inference_deployment = configuration["inference-deployment"] ?? throw new InvalidOperationException("Missing required secret: 'inference-deployment'.");
+
     Console.WriteLine("Successfully loaded configuration secrets.");
 
     /// Configure Semantic Kernel
@@ -79,8 +84,8 @@ try
         };
 
         kernelBuilder.AddAzureOpenAIChatCompletion(
-            deploymentName: deployment,
-            endpoint: endpoint,
+            deploymentName: inference_deployment,
+            endpoint: openai_endpoint,
             credentials: new DefaultAzureCredential(options)
         );
     }
@@ -88,17 +93,17 @@ try
     else if (isLocalDev)
     {
         kernelBuilder.AddAzureOpenAIChatCompletion(
-           deploymentName: deployment,
-           endpoint: endpoint,
-           apiKey: key
+           deploymentName: inference_deployment,
+           endpoint: openai_endpoint,
+           apiKey: openai_key
        );
     }
     else
     {
         // running remote - use DefaultAzureCredential from environment
         kernelBuilder.AddAzureOpenAIChatCompletion(
-            deploymentName: deployment,
-            endpoint: endpoint,
+            deploymentName: inference_deployment,
+            endpoint: openai_endpoint,
             credentials: new DefaultAzureCredential()
         );
     }
@@ -206,5 +211,6 @@ try
 catch (Exception ex)
 {
     Console.WriteLine($"Fatal error during start-up in program.cs: {ex}");
-    // Optionally log or handle the error
+    throw new Exception($"Fatal error during start-up in program.cs: {ex.Message}", ex);
 }
+   
