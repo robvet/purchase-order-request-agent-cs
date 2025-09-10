@@ -3,6 +3,7 @@ using Azure.AI.OpenAI;
 using Azure.Core;
 using Azure.Identity;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
 using SingleAgent.Agents;
@@ -17,6 +18,9 @@ using SingleAgent.Tools;
 using SingleAgent.Uiltities;
 using SingleAgent.Utlls;
 using System.Diagnostics;
+
+
+ILogger? logger = null; // Declare outside try
 
 try
 {
@@ -44,6 +48,18 @@ try
         config.AddConsole();
         config.SetMinimumLevel(LogLevel.Information); // Changed from Error to Information
     });
+
+
+    var loggerFactory = LoggerFactory.Create(config =>
+    {
+        config.AddConsole();
+        config.SetMinimumLevel(LogLevel.Information);
+    });
+    logger = loggerFactory.CreateLogger("Startup");
+
+    // Example usage
+    logger.LogInformation("Starting application...");
+
 
     // Retrieve required secrets from user secrets
     Console.WriteLine("Starting application...");
@@ -205,12 +221,17 @@ try
 
     app.MapControllers();
 
+    logger.LogInformation("Application started!");
+
     app.Run();
 
 }
 catch (Exception ex)
 {
+    // Handle and log startup exceptions
     Console.WriteLine($"Fatal error during start-up in program.cs: {ex}");
-    throw new Exception($"Fatal error during start-up in program.cs: {ex.Message}", ex);
+    logger?.LogCritical(ex, $"Fatal error during start-up in program.cs: {ex.Message}!");
+    Environment.Exit(1);
+    //throw new Exception($"Fatal error during start-up in program.cs: {ex.Message}", ex);
 }
    
