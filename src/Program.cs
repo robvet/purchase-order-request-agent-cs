@@ -24,29 +24,32 @@ ILogger? logger = null;
 
 try
 {
-    var builder = WebApplication.CreateBuilder(args);
-
-    builder.Services.AddControllers()
-        .AddJsonOptions(options =>
-        {
-            options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
-        });
-
-    // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-    builder.Services.AddEndpointsApiExplorer();
-    builder.Services.AddSwaggerGen();
-
     // Build configuration to access user secrets and environment variables
     var configuration = new ConfigurationBuilder()
         .AddUserSecrets<Program>()
         .AddEnvironmentVariables()
         .Build();
 
-    // Configure logging
-
-
+    // Determine environment (local or cloud)
+    //var environment = configuration["ASPNETCORE_ENVIRONMENT"] ?? "Production";
+    //bool isLocal = environment.Equals("Development", StringComparison.OrdinalIgnoreCase);
+    var tenantIdOverride = configuration["tenant-id-override"];
+    
+    bool isLocalDev = configuration["ASPNETCORE_ENVIRONMENT"]?.Equals("Development", StringComparison.OrdinalIgnoreCase) ?? false;
+    
     // Retrieve Application Insights connection string from user secrets
-    string? appInsightsConnectionString = configuration["application-insights"] ?? throw new InvalidOperationException("Missing required secret: 'ApplicationInsights:ConnectionString'."); ;
+    var appInsightsConnectionString = configuration["application-insights"] ?? throw new InvalidOperationException("Missing required secret: 'ApplicationInsights:ConnectionString'."); ;
+
+    // Azure OpenAI configuration
+    string openai_key = configuration["openai-key"] ?? throw new InvalidOperationException("Missing required secret: 'openai-key'.");
+    string openai_endpoint = configuration["openai-endpoint"] ?? throw new InvalidOperationException("Missing required secret: 'openai-endpoint'.");
+
+    // Inference deployment name
+    string inference_deployment = configuration["inference-deployment"] ?? throw new InvalidOperationException("Missing required secret: 'inference-deployment'.");
+
+    Console.WriteLine("Successfully loaded configuration secrets.");
+
+    var builder = WebApplication.CreateBuilder(args);
 
     builder.Services.AddLogging(config =>
     {
@@ -64,37 +67,39 @@ try
             );
         }
     });
-        
+
+    builder.Services.AddControllers()
+        .AddJsonOptions(options =>
+        {
+            options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
+        });
+
     // Retrieve required secrets from user secrets
     Console.WriteLine("Starting application...");
 
-    // Azure OpenAI configuration
-    string openai_key = configuration["openai-key"] ?? throw new InvalidOperationException("Missing required secret: 'openai-key'.");
-    string openai_endpoint = configuration["openai-endpoint"] ?? throw new InvalidOperationException("Missing required secret: 'openai-endpoint'.");
-
-    // Inference deployment name
-    string inference_deployment = configuration["inference-deployment"] ?? throw new InvalidOperationException("Missing required secret: 'inference-deployment'.");
-
-    Console.WriteLine("Successfully loaded configuration secrets.");
+    // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen();
 
     /// Configure Semantic Kernel
     var kernelBuilder = Kernel.CreateBuilder();
 
-
-    // Determine environment (local or cloud)
-    //var environment = configuration["ASPNETCORE_ENVIRONMENT"] ?? "Production";
-    //bool isLocal = environment.Equals("Development", StringComparison.OrdinalIgnoreCase);
-    var applicationTenantId = configuration["application-tenant"];
-    bool isLocalDev = configuration["ASPNETCORE_ENVIRONMENT"]?.Equals("Development", StringComparison.OrdinalIgnoreCase)?? false;
-
     // Address situation where application execution and user tenants are different
     // Local processing and application tenant ID is set - set tenant ID for DefaultAzureCredential
-    if (isLocalDev && !string.IsNullOrEmpty(applicationTenantId))
+    if (isLocalDev)
     {
-        // Use managed identity in cloud
-        var options = new DefaultAzureCredentialOptions
+        Console.WriteLine("Environment is Local Dev");
+        DefaultAzureCredentialOptions options = new();
+
+        if (!string.IsNullOrEmpty(tenantIdOverride))
         {
-            TenantId = applicationTenantId
+            // Add tenant override ID as user user tenant is different from that of the host environment
+            options = new DefaultAzureCredentialOptions
+            {
+                TenantId = tenantIdOverride
+            };
+
+            Console.WriteLine("User has added tenant ID Override value");
         };
 
         kernelBuilder.AddAzureOpenAIChatCompletion(
@@ -103,31 +108,17 @@ try
             credentials: new DefaultAzureCredential(options)
         );
     }
-    // Local processing and application tenant ID is NOT set - use API Key
-    else if (isLocalDev)
-    {
-        kernelBuilder.AddAzureOpenAIChatCompletion(
-           deploymentName: inference_deployment,
-           endpoint: openai_endpoint,
-           apiKey: openai_key
-       );
-    }
     else
     {
         // running remote - use DefaultAzureCredential from environment
         kernelBuilder.AddAzureOpenAIChatCompletion(
             deploymentName: inference_deployment,
             endpoint: openai_endpoint,
-            credentials: new DefaultAzureCredential()
+            apiKey: openai_key
         );
+
+        Console.WriteLine("User authenticated  with OpenAIKey");
     }
-
-    //kernelBuilder.AddAzureOpenAIChatCompletion(
-    //    deploymentName: deployment,
-    //    endpoint: endpoint,
-    //    apiKey: key
-    //);
-
 
     // Register tools with the kernel
     kernelBuilder.Plugins.AddFromType<ClassifyIntentTool>();
