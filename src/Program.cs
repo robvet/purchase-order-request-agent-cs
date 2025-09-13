@@ -1,23 +1,13 @@
-using Azure;
-using Azure.AI.OpenAI;
 using Azure.Core;
 using Azure.Identity;
-using Microsoft.AspNetCore.DataProtection.KeyManagement;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
 using SingleAgent.Agents;
 using SingleAgent.Contracts;
 using SingleAgent.Models;
-using SingleAgent.Models.DTO;
-using SingleAgent.Prompting;
 using SingleAgent.Storage.Contract;
 using SingleAgent.Storage.Providers;
 using SingleAgent.Telemetry;
 using SingleAgent.Tools;
-using SingleAgent.Uiltities;
-using SingleAgent.Utlls;
-using System.Diagnostics;
 
 // Declare logger outside try here for use in catch block
 ILogger? logger = null; 
@@ -68,6 +58,9 @@ try
         }
     });
 
+    // Add Application Insights telemetry to provide monitoring and logging
+    builder.Services.AddApplicationInsightsTelemetry();
+
     builder.Services.AddControllers()
         .AddJsonOptions(options =>
         {
@@ -101,6 +94,17 @@ try
 
             Console.WriteLine("User has added tenant ID Override value");
         };
+
+        // Identity: Work in progress
+        // See Claude projects: Identity
+
+        ////var credential = new DefaultAzureCredential(options);
+
+        ////var tokenRequestContext = new TokenRequestContext(new[] { "api://ea61d384-0c0c-4cd6-b30a-06d5690f15dd/.default" });
+
+        ////// 3. Asynchronously obtain an access token from Azure AD
+        //////    The credential will use the first successful auth method from step 1.
+        ////AccessToken token = await credential.GetTokenAsync(tokenRequestContext);
 
         kernelBuilder.AddAzureOpenAIChatCompletion(
             deploymentName: inference_deployment,

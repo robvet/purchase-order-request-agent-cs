@@ -45,6 +45,12 @@ namespace SingleAgent.Agents // Namespace for agent classes
                 // Fetch chat history for the session or create a new one
                 var chatHistory = await _stateStore.GetChatHistoryAsync(sessionId) ?? new ChatHistory();
 
+               
+                var chatHistoryFetch = string.Join(
+                    Environment.NewLine,
+                    chatHistory.Select(msg => $"{msg.Role}: {msg.Content}")
+                );
+
                 // Load existing purchase request state or create new one
                 var requestState = ReconstructStateFromHistory(chatHistory);
 
@@ -76,6 +82,14 @@ namespace SingleAgent.Agents // Namespace for agent classes
                     chatHistory,
                     executionSettings: settings,
                     kernel: _kernel);
+
+
+                var chatHistorySave = string.Join(
+                    Environment.NewLine,
+                    chatHistory.Select(msg => $"{msg.Role}: {msg.Content}")
+                );
+
+
 
                 string completion = result.Content ?? ""; // Get the completion text
 
