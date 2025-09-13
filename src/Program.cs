@@ -2,8 +2,10 @@ using Azure.Core;
 using Azure.Identity;
 using Microsoft.SemanticKernel;
 using SingleAgent.Agents;
+using SingleAgent.Context;
 using SingleAgent.Contracts;
 using SingleAgent.Models;
+using SingleAgent.State;
 using SingleAgent.Storage.Contract;
 using SingleAgent.Storage.Providers;
 using SingleAgent.Telemetry;
@@ -147,6 +149,9 @@ try
     kernelBuilder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
     kernelBuilder.Services.AddScoped<IProductRepository, InMemoryProductRepository>();
 
+    builder.Services.AddScoped<ContextPruningService>();
+    builder.Services.AddScoped<PurchaseStateReconstructor>();
+ 
     var kernel = kernelBuilder.Build();
 
     // Register Kernel as singleton
