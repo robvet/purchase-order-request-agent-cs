@@ -30,6 +30,13 @@ namespace SingleAgent.Agents // Namespace for agent classes
         private readonly ContextPruningService _contextPruningService;
         private readonly PurchaseStateReconstructor _stateReconstructor;
 
+        /// <architecture = "Workflow">
+        /// 1) Agents and Tools should be contain orchestration and validation logic. 
+        /// 2) The model should be used for reasoning, decision-making, and language tasks for the specific business case.
+        /// 3) Single source of truth: ChatHistory
+        /// 4) Track state naturally through chat history
+        /// </architecture>
+        /// 
 
         // Constructor with dependencies injected
         public PurchaseOrderAgent(ILogger<PurchaseOrderAgent> logger,
@@ -54,46 +61,54 @@ namespace SingleAgent.Agents // Namespace for agent classes
         }
 
         public async Task<(string completion, ChatHistory History)> ProcessUserRequestAsync(
-            string userInputPrompt,
+            string userInput,
             string sessionId,
             TelemetryCollector telemetryCollector)
         {
             try
             {
-                _logger.LogInformation("Processing user request: {UserPrompt}", userInputPrompt); // Log the user prompt
+                _logger.LogInformation("Processing user request: {UserPrompt}", userInput); // Log the user prompt
 
-                // Context variable that includes all necessary state info, as opposed to history which only stores state
-                // required across turns
-                //string context = string.Empty;
+                // 1. Full History Store (for audit/tracking)
+                var fullHistory = await _stateStore.GetChatHistoryAsync(sessionId) ?? new ChatHistory();
 
-                //// Load context starting with the system prompt
-                //context += PromptTemplate.SystemPrompt() + Environment.NewLine;
-
-
-                // Fetch chat history for the session or create a new one
-                var chatHistory = await _stateStore.GetChatHistoryAsync(sessionId) ?? new ChatHistory();
-
-               
-                var chatHistoryFetch = string.Join(
-                    Environment.NewLine,
-                    chatHistory.Select(msg => $"{msg.Role}: {msg.Content}")
-                );
-
-                // Load existing purchase request state or create new one
-                var requestState = _stateReconstructor.ReconstructStateFromHistory(chatHistory);
-
-                // Add system prompt as the first message if history is empty
-                if (chatHistory.Count == 0)
+                // 2. Add system prompt if new conversation
+                if (fullHistory.Count == 0)
                 {
-                    chatHistory.AddSystemMessage(PurchaseOrderPrompts.SystemPrompt());
+                    fullHistory.AddSystemMessage(PurchaseOrderPrompts.SystemPrompt());
                 }
 
-                //userInputPrompt = PromptTemplate.UserPrompt()
-                //    .Replace("{{userInputPrompt}}", userInputPrompt)
-                //    .Replace("{{workflowState}}", JsonSerializer.Serialize(requestState, _jsonOptions));
+                // 3. Add current input to full history
+                fullHistory.AddUserMessage(userInput);
 
-                // Add the user's message to the chat history
-                chatHistory.AddUserMessage(userInputPrompt);
+                // 4. Let ContextPruningService build model context
+                var modelContext = _contextPruningService.BuildModelContext(fullHistory);
+
+                //// 4. Build model context (only what's needed)  
+                ////    Encapsulate in OpenAI ChatHistory object
+                ////    
+                //var modelContext = new ChatHistory();
+
+                /// <architecture = "Workflow">
+                /// 1) NO HARDCODING in orchestration code. Keep workflow state in the system prompt - let it guide the model.
+                ///    Let model choose next steps based on context and tools available
+                /// 2) Single source of truth: ChatHistory
+                /// 3) Track state naturally through chat history
+                /// </architecture>
+
+                //// Always start fresh with system prompt
+                //modelContext.AddSystemMessage(PurchaseOrderPrompts.SystemPrompt());
+
+                //// Add only relevant history (last tool result + response)
+                //var lastRelevantMessages = GetRelevantMessages(fullHistory);
+                
+                //foreach (var msg in lastRelevantMessages)
+                //{
+                //    modelContext.AddMessage(msg.Role, msg.Content);
+                //}
+
+                //// Add current user input
+                //modelContext.AddUserMessage(userInput);
 
                 // Get the chat completion service from the kernel
                 var chatService = _kernel.GetRequiredService<IChatCompletionService>();
@@ -105,32 +120,81 @@ namespace SingleAgent.Agents // Namespace for agent classes
                     Temperature = 0.0
                 };
 
-                // Build a focused context for the model
-                var activeContext = _contextPruningService.BuildActiveContext(chatHistory, requestState, userInputPrompt);
-
-                // Get the AI's response to the active context only
+                // Get model response using focused context
                 var result = await chatService.GetChatMessageContentAsync(
-                    activeContext,  // <-- Now sending only the relevant context
-                    //chatHistory,
+                    modelContext,  // Only what model needs
                     executionSettings: settings,
-                    kernel: _kernel);
-
-
-                var chatHistorySave = string.Join(
-                    Environment.NewLine,
-                    chatHistory.Select(msg => $"{msg.Role}: {msg.Content}")
+                    kernel: _kernel
                 );
 
+                // Save responses to full history
+                fullHistory.AddAssistantMessage(result.Content);
 
-                string completion = result.Content ?? ""; // Get the completion text
+                // Update fullchat history for the session
+                await _stateStore.SaveChatHistoryAsync(sessionId, fullHistory);
 
-                // Add the assistant's response to the chat history
-                chatHistory.AddAssistantMessage(completion);
+                return (result.Content, fullHistory);
+
+
+
+
+                //var chatHistoryFetch = string.Join(
+                //    Environment.NewLine,
+                //    chatHistory.Select(msg => $"{msg.Role}: {msg.Content}")
+                //);
+
+                //// Load existing purchase request state or create new one
+                //var requestState = _stateReconstructor.ReconstructStateFromHistory(chatHistory);
+
+                //// Add system prompt as the first message if history is empty
+                //if (chatHistory.Count == 0)
+                //{
+                //    chatHistory.AddSystemMessage(PurchaseOrderPrompts.SystemPrompt());
+                //}
+
+                ////userInput = PromptTemplate.UserPrompt()
+                ////    .Replace("{{userInput}}", userInput)
+                ////    .Replace("{{workflowState}}", JsonSerializer.Serialize(requestState, _jsonOptions));
+
+                //// Add the user's message to the chat history
+                //chatHistory.AddUserMessage(userInput);
+
+                //// Get the chat completion service from the kernel
+                //var chatService = _kernel.GetRequiredService<IChatCompletionService>();
+
+                //// Set up execution settings to auto-invoke kernel functions
+                //var settings = new OpenAIPromptExecutionSettings
+                //{
+                //    ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions,
+                //    Temperature = 0.0
+                //};
+
+                //// Build a focused context for the model
+                //var activeContext = _contextPruningService.BuildActiveContext(chatHistory, requestState, userInput);
+
+                // Get the AI's response to the active context only
+                //var result = await chatService.GetChatMessageContentAsync(
+                //    activeContext,  // <-- Now sending only the relevant context
+                //    //chatHistory,
+                //    executionSettings: settings,
+                //    kernel: _kernel);
+
+
+                //var chatHistorySave = string.Join(
+                //    Environment.NewLine,
+                //    chatHistory.Select(msg => $"{msg.Role}: {msg.Content}")
+                //);
+
+
+                //string completion = result.Content ?? ""; // Get the completion text
+
+                //// Add the assistant's response to the chat history
+                //chatHistory.AddAssistantMessage(completion);
 
                 // Save the updated chat history for the session
-                await _stateStore.SaveChatHistoryAsync(sessionId, chatHistory);
+                //await _stateStore.SaveChatHistoryAsync(sessionId, chatHistory);
 
-                return (completion, chatHistory);
+                //return (completion, chatHistory);
             }
             catch (Exception ex)
             {
@@ -230,7 +294,7 @@ namespace SingleAgent.Agents // Namespace for agent classes
 
         //    // Always add the current user message with state
         //    string formattedUserInput = PromptTemplate.UserPrompt()
-        //        .Replace("{{userInputPrompt}}", userInput)
+        //        .Replace("{{userInput}}", userInput)
         //        .Replace("{{workflowState}}", JsonSerializer.Serialize(currentState, _jsonOptions));
 
         //    activeContext.AddUserMessage(formattedUserInput);
@@ -382,7 +446,7 @@ namespace SingleAgent.Agents // Namespace for agent classes
 //A new purchase order request has been submitted.
 
 //Request Details:
-//{{userInputPrompt}}
+//{{userInput}}
 
 //Your task is to process this request using the available tools. 
 //At each step, select and invoke the tool most appropriate for the current context, and reflect on the output before proceeding. 

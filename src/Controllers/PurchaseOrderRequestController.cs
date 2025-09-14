@@ -58,38 +58,49 @@ namespace SingleAgent.Controllers
 
                 // validate input
                 if (string.IsNullOrWhiteSpace(userInputPrompt))
-                {   
+                {
                     _logger.LogWarning("Empty or null prompt received.");
                     return BadRequest("Prompt cannot be empty or null.");
                 }
 
-                // Lightly sanitize user input
-                // Remove leading and trailing whitespace characters
-                // spaces, tabs, newlines, other Unicode whitespace characters
                 userInputPrompt = userInputPrompt.Trim();
-
-                // 1. Get/generate sessionId
                 string sessionId = Request.Cookies["SessionId"] ?? Guid.NewGuid().ToString();
-
-                // 2. Call agent - receive completion, history
                 var (completion, history) = await _purchaseOrderAgent.ProcessUserRequestAsync(userInputPrompt, sessionId, _telemetryCollector);
 
-                // 🔍 DEBUG: Get formatted debug output with Input/Output structure
-                var FunctionExecutionSummary = _telemetryCollector.GetExecutionSummary();
-                var DetailedExecutionLog = _telemetryCollector.GetDetailedExecutionLog();
-                var functionDebug = new FunctionDebugDto 
-                { 
-                    FormattedOutput = _telemetryCollector.GetFormattedFunctionDebugOutput() 
+                var functionDebug = new FunctionDebugDto
+                {
+                    FormattedOutput = _telemetryCollector.GetFormattedFunctionDebugOutput()
                 };
 
-                // 3. Set sessionId as cookie for tracking history across turns
                 Response.Cookies.Append("SessionId", sessionId, new CookieOptions { HttpOnly = true, SameSite = SameSiteMode.Lax });
-
-                // 4. Inject dynamic telemetry transformation for tool behavior tracking and telemetry
                 var toolSteps = InjectDynamicTelemetryTransformation(_telemetryCollector.GetAll().ToList());
 
-                // 5. Map ChatHistory to DTO (Data Transfer Object)
-                var jsonNode = JsonNode.Parse(completion);
+                JsonNode? jsonNode;
+                try
+                {
+                    if (!completion.TrimStart().StartsWith("{"))
+                    {
+                        _logger.LogWarning("AI response is not in JSON format. Raw response: {Completion}", completion);
+                        var wrappedResponse = new
+                        {
+                            reflection = completion,
+                            nextStep = "Error: AI response was not in correct JSON format. Please try again.",
+                            userPrompt = userInputPrompt
+                        };
+                        var jsonString = JsonSerializer.Serialize(wrappedResponse);
+                        jsonNode = JsonNode.Parse(jsonString);
+                    }
+                    else
+                    {
+                        jsonNode = JsonNode.Parse(completion);
+                    }
+                }
+                catch (JsonException jsonEx)
+                {
+                    _logger.LogError(jsonEx, "Failed to parse AI response");
+                    return StatusCode(500, "Failed to process AI response. Please try again.");
+                }
+
                 var response = jsonNode.ToAgentResponseDto(
                     sessionId,
                     ChatHistoryMappingExtensions.MapToDto(history),
@@ -98,7 +109,6 @@ namespace SingleAgent.Controllers
                     showDebug
                 );
 
-                // 6. Return response with separate FunctionDebug if showDebug is true
                 if (showDebug)
                 {
                     return Ok(new
@@ -107,30 +117,156 @@ namespace SingleAgent.Controllers
                         response.Reflection,
                         response.NextStep,
                         response.Products,
-                        //response.DebugInfo,
                         FunctionDebug = functionDebug
                     });
                 }
-                else
+
+                return Ok(new
                 {
-                    return Ok(new
-                    {
-                        response.UserPrompt,
-                        response.Reflection,
-                        response.Products
-                    });
-                }
-
-                _logger.LogInformation("User prompt processed successfully");
-
-                return Ok(response);
+                    response.UserPrompt,
+                    response.Reflection,
+                    response.Products
+                });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "ProcessPurchaseRequestAsync failed");
                 return StatusCode(500, "Internal server error. Please contact support.");
             }
-        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            //try
+            //{
+            //    _logger.LogInformation("Logging user prompt for PO Request: {UserPrompt}", userInputPrompt);
+
+            //    // validate input
+            //    if (string.IsNullOrWhiteSpace(userInputPrompt))
+            //    {
+            //        _logger.LogWarning("Empty or null prompt received.");
+            //        return BadRequest("Prompt cannot be empty or null.");
+            //    }
+
+            //    // Lightly sanitize user input
+            //    // Remove leading and trailing whitespace characters
+            //    // spaces, tabs, newlines, other Unicode whitespace characters
+            //    userInputPrompt = userInputPrompt.Trim();
+
+            //    // 1. Get/generate sessionId
+            //    string sessionId = Request.Cookies["SessionId"] ?? Guid.NewGuid().ToString();
+
+            //    // 2. Call agent - receive completion, history
+            //    var (completion, history) = await _purchaseOrderAgent.ProcessUserRequestAsync(userInputPrompt, sessionId, _telemetryCollector);
+
+            //    // 🔍 DEBUG: Get formatted debug output with Input/Output structure
+            //    var FunctionExecutionSummary = _telemetryCollector.GetExecutionSummary();
+            //    var DetailedExecutionLog = _telemetryCollector.GetDetailedExecutionLog();
+            //    var functionDebug = new FunctionDebugDto
+            //    {
+            //        FormattedOutput = _telemetryCollector.GetFormattedFunctionDebugOutput()
+            //    };
+
+            //    // 3. Set sessionId as cookie for tracking history across turns
+            //    Response.Cookies.Append("SessionId", sessionId, new CookieOptions { HttpOnly = true, SameSite = SameSiteMode.Lax });
+
+            //    // 4. Inject dynamic telemetry transformation for tool behavior tracking and telemetry
+            //    var toolSteps = InjectDynamicTelemetryTransformation(_telemetryCollector.GetAll().ToList());
+
+            //    // 5. Map ChatHistory to DTO (Data Transfer Object)
+            //    //var jsonNode = JsonNode.Parse(completion);
+            //    //var response = jsonNode.ToAgentResponseDto(
+            //    //    sessionId,
+            //    //    ChatHistoryMappingExtensions.MapToDto(history),
+            //    //    _telemetryCollector.GetAll().ToList(),
+            //    //    toolSteps,
+            //    //    showDebug
+            //    //);
+
+
+            //    // Replace the JsonNode.Parse section with this code:
+            //    JsonNode? jsonNode;
+            //    try
+            //    {
+            //        // Check if the completion starts with a JSON object marker
+            //        if (!completion.TrimStart().StartsWith("{"))
+            //        {
+            //            _logger.LogWarning("AI response is not in JSON format. Raw response: {Completion}", completion);
+
+            //            // Create a valid JSON response wrapping the non-JSON response
+            //            var wrappedResponse = new
+            //            {
+            //                reflection = completion,
+            //                nextStep = "Error: AI response was not in correct JSON format. Please try again.",
+            //                userPrompt = userInputPrompt
+            //            };
+
+            //            // Convert the wrapped response to JSON
+            //            var jsonString = JsonSerializer.Serialize(wrappedResponse);
+            //            jsonNode = JsonNode.Parse(jsonString);
+            //        }
+            //        else
+            //        {
+            //            jsonNode = JsonNode.Parse(completion);
+            //        }
+
+            //        var response = jsonNode.ToAgentResponseDto(
+            //            sessionId,
+            //            ChatHistoryMappingExtensions.MapToDto(history),
+            //            _telemetryCollector.GetAll().ToList(),
+            //            toolSteps,
+            //            showDebug
+            //        );
+
+
+            //        // 6. Return response with separate FunctionDebug if showDebug is true
+            //        if (showDebug)
+            //        {
+            //            return Ok(new
+            //            {
+            //                response.UserPrompt,
+            //                response.Reflection,
+            //                response.NextStep,
+            //                response.Products,
+            //                //response.DebugInfo,
+            //                FunctionDebug = functionDebug
+            //            });
+            //        }
+            //        else
+            //        {
+            //            return Ok(new
+            //            {
+            //                response.UserPrompt,
+            //                response.Reflection,
+            //                response.Products
+            //            });
+            //        }
+
+            //        _logger.LogInformation("User prompt processed successfully");
+
+            //        return Ok(response);
+            //    }
+
+            //    catch (Exception ex)
+            //    {
+            //        _logger.LogError(ex, "ProcessPurchaseRequestAsync failed");
+            //        return StatusCode(500, "Internal server error. Please contact support.");
+            //    }
+            }
 
         /// <summary>
         /// Injects dynamic transformation of raw telemetry into clean, presentation-ready tool step summaries.

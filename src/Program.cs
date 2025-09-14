@@ -4,6 +4,7 @@ using Microsoft.SemanticKernel;
 using SingleAgent.Agents;
 using SingleAgent.Context;
 using SingleAgent.Contracts;
+using SingleAgent.Junkyard;
 using SingleAgent.Models;
 using SingleAgent.State;
 using SingleAgent.Storage.Contract;
@@ -129,7 +130,7 @@ try
     // Register tools with the kernel
     kernelBuilder.Plugins.AddFromType<ClassifyIntentTool>();
     kernelBuilder.Plugins.AddFromType<ValidateProductTool>();   
-    kernelBuilder.Plugins.AddFromType<ExtractDetailsTool>();
+    kernelBuilder.Plugins.AddFromType<ProductValidationTool>();
     kernelBuilder.Plugins.AddFromType<CheckComplianceTool>();
     kernelBuilder.Plugins.AddFromType<JustifyApprovalTool>();
 

@@ -5,7 +5,7 @@ using SingleAgent.Prompting;
 using SingleAgent.Storage.Contract;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using static SingleAgent.Tools.ValidateProductTool;
+using static SingleAgent.Junkyard.ValidateProductTool;
 
 namespace SingleAgent.Context
 {
@@ -20,9 +20,6 @@ namespace SingleAgent.Context
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         };
 
-
-
-
         public ContextPruningService(ILogger<ContextPruningService> logger)
         {
             _logger = logger;
@@ -33,26 +30,62 @@ namespace SingleAgent.Context
         // 3. Conversation Flow: It maintains the most recent assistant message to preserve the flow of conversation.
         // 4. Original Order: Messages are added in their original chronological order to maintain conversation coherence.
         // 5. Performance Logging: It logs how much context was pruned for monitoring efficiency.
-        internal ChatHistory BuildActiveContext(ChatHistory fullHistory, PurchaseRequestState currentState, string userInput)
+        internal ChatHistory BuildModelContext(ChatHistory fullHistory)
         {
             // Create a new, focused context
-            var activeContext = new ChatHistory();
+            var modelContext = new ChatHistory();
 
-            // Always start with system prompt
-            activeContext.AddSystemMessage(PurchaseOrderPrompts.SystemPrompt());
+            // 2. Get only relevant messages (last state-changing sequence)
+            var relevantMessages = GetRelevantMessages(fullHistory);
+            foreach (var message in relevantMessages)
+            {
+                modelContext.AddMessage(message.Role, message.Content);
+            }
 
-            // Add only the most important previous messages from history based on state
-            AddRelevantHistoryToContext(activeContext, fullHistory, currentState);
+            // 3. Add current user input (without injecting state)
+            //modelContext.AddUserMessage(userInput);
 
-            // Always add the current user message with state
-            string formattedUserInput = PurchaseOrderPrompts.UserPrompt()
-                .Replace("{{userInputPrompt}}", userInput)
-                .Replace("{{workflowState}}", JsonSerializer.Serialize(currentState, _jsonOptions));
+            _logger.LogInformation(
+                "Context pruning: from {OriginalCount} to {FilteredCount} messages",
+                fullHistory.Count,
+                modelContext.Count);
 
-            activeContext.AddUserMessage(formattedUserInput);
+            return modelContext;
 
-            return activeContext;
+            //// Add only the most important previous messages from history based on state
+            //AddRelevantHistoryToContext(modelContext, fullHistory, currentState);
+
+            //// Always add the current user message with state
+            //string formattedUserInput = PurchaseOrderPrompts.UserPrompt()
+            //    .Replace("{{userInputPrompt}}", userInput)
+            //    .Replace("{{workflowState}}", JsonSerializer.Serialize(currentState, _jsonOptions));
+
+            //modelContext.AddUserMessage(formattedUserInput);
+
+            //return modelContext;
         }
+
+        private IEnumerable<ChatMessageContent> GetRelevantMessages(ChatHistory history)
+        {
+            // For short conversations, return the messages themselves
+            if (history.Count <= 3)
+            {
+                return history;
+            }
+
+            // Get last meaningful interaction (tool call + response)
+            var lastMessages = history
+                .Reverse()
+                .Take(3)  // Last user input, tool result, and assistant response
+                .Where(m => !string.IsNullOrWhiteSpace(m.Content))
+                .ToList();
+
+            return lastMessages;
+        }
+
+
+
+
 
         //// Could make helper methods static if they don't need instance state
         //private static bool IsRelevantToolResponse(JsonNode toolResult)
@@ -147,7 +180,7 @@ namespace SingleAgent.Context
             //{
             //    foreach (var message in fullHistory)
             //    {
-            //        activeContext.AddMessage(message.Role, message.Content);
+            //        modelContext.AddMessage(message.Role, message.Content);
             //    }
             //    return;
             //}
@@ -222,14 +255,14 @@ namespace SingleAgent.Context
             //// Add relevant messages to active context in original order
             //foreach (var (_, message) in messagesToInclude.OrderBy(m => m.Index))
             //{
-            //    activeContext.AddMessage(message.Role, message.Content);
+            //    modelContext.AddMessage(message.Role, message.Content);
             //}
 
             //// Log how much we pruned
             //_logger.LogInformation(
             //    "Context pruning: reduced from {OriginalCount} to {PrunedCount} messages",
             //    fullHistory.Count,
-            //    activeContext.Count);
+            //    modelContext.Count);
         }
 
         private bool IsToolResultRelevant(JsonNode toolResult)

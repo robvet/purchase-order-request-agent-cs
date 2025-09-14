@@ -33,6 +33,7 @@ namespace SingleAgent.State
                 if (string.IsNullOrEmpty(toolMessage.Content)) continue;
 
                 try
+                { 
                     var toolResult = JsonNode.Parse(toolMessage.Content);
                     if (toolResult == null) continue;
 
