@@ -25,7 +25,7 @@ namespace SingleAgent.Tools
         public async Task<string> ValidateRequestedProductAsync(
             Kernel kernel,
             [Description("Natural language text describing the product the user wants to request.")] string userRequest,
-            [Description("The user intent. This tool should only be used for 'RequestPurchase' intents.")] string intent,
+            [Description("The user intent. This tool should only be used for 'RequestProduct' intents.")] string intent,
             [Description("(REQUIRED) Model's explanation for why product validation is needed at this step")] string reasoning)
         {
             try
@@ -41,7 +41,7 @@ namespace SingleAgent.Tools
                 if (string.IsNullOrWhiteSpace(reasoning))
                     throw new ArgumentException("Reasoning required in {ToolName} for audit trail and tool selection improvement.", ToolName);
 
-                if (intent != "RequestPurchase")
+                if (intent != "RequestProduct")
                 {
                     ///<ArchitectureNote = Self-Correction>
                     ///  If the user intent is not a purchase request, don't return an exception and abort the workflow based on 
@@ -53,7 +53,7 @@ namespace SingleAgent.Tools
                     ///  
                     /// The response:
                     ///    1. Returns a valid JSON response that the LLM can process (as opposed to crashing the workflow)
-                    ///    2. Clearly indicates the error - "wrong_tool" 
+                    ///    2. Clearly indicates the error - "wrong_intent" 
                     ///    3. Provides context - Explains why this tool isn't appropriate
                     ///    4. Offers guidance - Suggests what the LLM should do next
                     ///    5. Maintains consistency - Returns JSON like all other responses
@@ -75,7 +75,7 @@ namespace SingleAgent.Tools
                         ToolName = ToolName,
                         status = "error",
                         intent = intent,
-                        error = "wrong_tool",
+                        error = "wrong_intent",
                         message = $"This tool validates purchase requests only. The current intent is '{intent}'.",
                         suggestion = "Use a tool appropriate for the current intent.",
                         confidence = 0.0,

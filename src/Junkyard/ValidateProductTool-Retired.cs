@@ -6,12 +6,12 @@ using System.Text.Json.Nodes;
 
 namespace SingleAgent.Junkyard
 {
-    public class ValidateProductTool
+    public class ValidateProductToolRetired
     {
-        private readonly ILogger<ValidateProductTool> _logger; // Logger for this agent
+        private readonly ILogger<ValidateProductToolRetired> _logger; // Logger for this agent
         private readonly IProductRepository _productRepository;
 
-        public ValidateProductTool(ILogger<ValidateProductTool> logger)
+        public ValidateProductToolRetired(ILogger<ValidateProductToolRetired> logger)
         {
             _logger = logger;
         }
@@ -34,13 +34,13 @@ namespace SingleAgent.Junkyard
         public async Task<string> ValidateItemAsync(
             Kernel kernel,
             [Description("The product the user is requesting and requires validation.")] string userRequest,
-            [Description("The pre-determined user intent, used to verify this function is being called for the correct purpose (e.g., 'RequestPurchase').")] string intent)
+            [Description("The pre-determined user intent, used to verify this function is being called for the correct purpose (e.g., 'RequestProduct').")] string intent)
         {
             try
             {
                 _logger.LogInformation("Processing user request in ClassifyRequestTool: {userRequest}", userRequest); // Log the user prompt
 
-                if (intent != "RequestPurchase")
+                if (intent != "RequestProduct")
                 {
                     ///<ArchitectureNote = Self-Correction>
                     ///  If the user intent is not a purchase request, don't return an exception and abort the workflow based on 
@@ -52,7 +52,7 @@ namespace SingleAgent.Junkyard
                     ///  
                     /// The response:
                     ///    1. Returns a valid JSON response that the LLM can process (as opposed to crashing the workflow)
-                    ///    2. Clearly indicates the error - "wrong_tool" 
+                    ///    2. Clearly indicates the error - "wrong_intent" 
                     ///    3. Provides context - Explains why this tool isn't appropriate
                     ///    4. Offers guidance - Suggests what the LLM should do next
                     ///    5. Maintains consistency - Returns JSON like all other responses
@@ -72,7 +72,7 @@ namespace SingleAgent.Junkyard
                     var errorResponse = new
                     {
                         status = "error",
-                        error = "wrong_tool",
+                        error = "wrong_intent",
                         message = $"This tool validates products for purchase requests only. The current intent you sent is '{intent}'.",
                         suggestion = "Use IntentRouterTool to determine the correct intent first, or use a tool appropriate for the current intent.",
                         //intent = intent,

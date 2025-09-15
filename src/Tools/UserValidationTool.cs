@@ -9,7 +9,7 @@
 
     namespace SingleAgent.Tools
     {
-        [Description("Captures and validates user context including employee details, department, and approval chain for purchase requests.")]
+        [Description("Captures and validates user context including employee email and department for purchase requests.")]
         public class UserValidationTool
         {
             private const string ToolName = "UserValidationTool";
@@ -25,7 +25,7 @@
             public async Task<string> ValidateUserAsync(
                 Kernel kernel,
                 [Description("Natural language text that may contain user context details.")] string userRequest,
-                [Description("The user intent. This tool should only be used for 'RequestPurchase' intents.")] string intent,
+                [Description("The user intent. This tool should only be used for 'RequestProduct' intents.")] string intent,
                 [Description("(REQUIRED) Model's explanation for why user validation is needed at this step")] string reasoning)
             {
                 try
@@ -41,14 +41,14 @@
                     if (string.IsNullOrWhiteSpace(reasoning))
                         throw new ArgumentException("Reasoning required in {ToolName} for audit trail and tool selection improvement.", ToolName);
 
-                    if (intent != "RequestPurchase")
+                    if (intent != "RequestProduct")
                     {
                         _logger.LogWarning("UserValidationTool called with non-purchase intent: {Intent} in {ToolName}", intent, ToolName);
                         return JsonSerializer.Serialize(new
                         {
                             ToolName = ToolName,
                             status = "error",
-                            error = "wrong_tool",
+                            error = "wrong_intent",
                             intent = intent,
                             message = $"This tool captures user context for purchase requests only. Current intent: '{intent}'.",
                             suggestion = "Use appropriate tool for the current intent.",
@@ -57,7 +57,9 @@
                     }
 
                     // Extract potential identifiers from request using LLM
-                    var prompt = PromptTemplate.ExtractUserContextPrompt(userRequest);
+                    var prompt = PromptTemplate.ExtractUserContextPrompt(userRequest).Replace("{{userRequest}}", userRequest);  // Add this line to replace placeholder
+                    
+                    //var prompt = PromptTemplate.ExtractUserContextPrompt(userRequest);
                     var result = await kernel.InvokePromptAsync(prompt, new KernelArguments
                     {
                         ["userRequest"] = userRequest
@@ -65,31 +67,98 @@
 
                     var extractedContext = JsonNode.Parse(result.ToString());
 
-                    var employeeId = extractedContext?["employeeId"]?.ToString();
-                    var fullName = extractedContext?["fullname"]?.ToString();
                     var email = extractedContext?["email"]?.ToString();
                     var department = extractedContext?["department"]?.ToString();
-                    var supervisorEmail = extractedContext?["supervisorEmail"]?.ToString();
 
-                    var response = new
+                    // After extracting values
+                    var missingFields = new List<string>();
+                    if (string.IsNullOrWhiteSpace(email)) missingFields.Add("email");
+                    if (string.IsNullOrWhiteSpace(department)) missingFields.Add("department");
+
+                    object response;
+                    if (missingFields.Any())
                     {
-                        ToolName = ToolName,
-                        status = "complete",
-                        user_context = new
+                        response = new
                         {
-                            employee_id = employeeId,
-                            full_name = fullName,
-                            email = email,
-                            department = department,
-                            supervisor_email = supervisorEmail
-                        },
-                        confidence = 1.0,
-                        reasoning = reasoning,
-                        timestamp = DateTime.UtcNow,
-                        correlationId = Guid.NewGuid().ToString()
-                    };
+                            toolname = ToolName,
+                            status = "needs_user_input",
+                            user_context = new
+                            {
+                                email = email,
+                                department = department
+                            },
+                            missing_fields = missingFields,
+                            message = $"Please provide: {string.Join(", ", missingFields)}",
+                            confidence = 0.0,
+                            reasoning = reasoning,
+                            timestamp = DateTime.UtcNow,
+                            correlationId = Guid.NewGuid().ToString()
+                        };
+                    }
+                    else
+                    {
+                        response = new
+                        {
+                            toolname = ToolName,
+                            status = "complete",
+                            user_context = new
+                            {
+                                email = email,
+                                department = department
+                            },
+                            confidence = 1.0,
+                            reasoning = reasoning,
+                            timestamp = DateTime.UtcNow,
+                            correlationId = Guid.NewGuid().ToString()
+                        };
+                    }
 
                     return JsonSerializer.Serialize(response);
+
+
+
+                    //var response = new
+                    //{
+                    //    toolname = ToolName,
+                    //    status = missingFields.Any() ? "incomplete" : "complete",
+                    //    user_context = new
+                    //    {
+                    //        employee_id = employeeId,
+                    //        full_name = fullName,
+                    //        email = email,
+                    //        department = department,
+                    //        supervisor_email = supervisorEmail
+                    //    },
+                    //    missing_fields = missingFields,
+                    //    message = missingFields.Any()
+                    //        ? $"Please provide: {string.Join(", ", missingFields)}"
+                    //        : null,
+                    //    confidence = 1.0,
+                    //    reasoning = reasoning,
+                    //    timestamp = DateTime.UtcNow,
+                    //    correlationId = Guid.NewGuid().ToString()
+                    //};
+
+
+                    //var response = new
+                    //{
+                    //    ToolName = ToolName,
+                    //    status = "complete",
+                    //    user_context = new
+                    //    {
+                    //        employee_id = employeeId,
+                    //        full_name = fullName,
+                    //        email = email,
+                    //        department = department,
+                    //        supervisor_email = supervisorEmail
+                    //    },
+                    //    confidence = 1.0,
+                    //    reasoning = reasoning,
+                    //    timestamp = DateTime.UtcNow,
+                    //    correlationId = Guid.NewGuid().ToString()
+                    //};
+
+                    //return JsonSerializer.Serialize(response);
                 }
                 catch (Exception ex)
                 {
@@ -116,19 +185,13 @@ User request: {{userRequest}}
 
 Look for and extract:
 - Email address
-- Employee ID
-- Full Name
 - Department name
-- Supervisor's email
 
 Return STRICTLY valid JSON with these fields:
 {
     ""status"": ""complete"" | ""incomplete"",
     ""email"": ""extracted email or null"",
-    ""employeeId"": ""extracted employee ID or null"",
-    ""fullName"": ""extracted full name or null"",
     ""department"": ""extracted department or null"",
-    ""supervisorEmail"": ""extracted supervisor email or null"",
     ""missing_fields"": [""array of required fields that are null""]
 }
 

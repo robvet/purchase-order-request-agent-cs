@@ -71,11 +71,14 @@ namespace SingleAgent.Agents // Namespace for agent classes
 
                 // 1. Full History Store (for audit/tracking)
                 var fullHistory = await _stateStore.GetChatHistoryAsync(sessionId) ?? new ChatHistory();
+                                               
+                var workflowState = await _stateStore.GetRequestStateAsync(sessionId) ?? new PurchaseRequestState();
 
                 // 2. Add system prompt if new conversation
                 if (fullHistory.Count == 0)
                 {
                     fullHistory.AddSystemMessage(PurchaseOrderPrompts.SystemPrompt());
+                    workflowState.Status = "start";
                 }
 
                 // 3. Add current input to full history
@@ -83,6 +86,11 @@ namespace SingleAgent.Agents // Namespace for agent classes
 
                 // 4. Let ContextPruningService build model context
                 var modelContext = _contextPruningService.BuildModelContext(fullHistory);
+
+                modelContext.AddUserMessage($@"Current Workflow State:
+                    {JsonSerializer.Serialize(workflowState, _jsonOptions)}
+                    User Input: {userInput}");
+
 
                 //// 4. Build model context (only what's needed)  
                 ////    Encapsulate in OpenAI ChatHistory object
@@ -101,7 +109,7 @@ namespace SingleAgent.Agents // Namespace for agent classes
 
                 //// Add only relevant history (last tool result + response)
                 //var lastRelevantMessages = GetRelevantMessages(fullHistory);
-                
+
                 //foreach (var msg in lastRelevantMessages)
                 //{
                 //    modelContext.AddMessage(msg.Role, msg.Content);
@@ -110,10 +118,8 @@ namespace SingleAgent.Agents // Namespace for agent classes
                 //// Add current user input
                 //modelContext.AddUserMessage(userInput);
 
-                // Get the chat completion service from the kernel
+                // Get chat completion service from kernel and configure auto-invoke kernel functions
                 var chatService = _kernel.GetRequiredService<IChatCompletionService>();
-
-                // Set up execution settings to auto-invoke kernel functions
                 var settings = new OpenAIPromptExecutionSettings
                 {
                     ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions,
@@ -127,11 +133,42 @@ namespace SingleAgent.Agents // Namespace for agent classes
                     kernel: _kernel
                 );
 
+
+                // Get tool responses
+                var toolResponses = modelContext.Where(m => m.Role == AuthorRole.Tool)
+                    .Select(m => m.Content)
+                    .ToList();
+
+                // Update workflow state based on tool responses
+                foreach (var response in toolResponses)
+                {
+                    var toolResult = JsonNode.Parse(response);
+
+                    // Update state based on tool responses
+                    if (toolResult?["intent"] != null)
+                    {
+                        workflowState.Intent = toolResult["intent"].ToString();
+                        workflowState.Status = "intent_classified";
+                    }
+                    else if (toolResult?["status"]?.ToString() == "needs_user_input")
+                    {
+                        workflowState.Status = "awaiting_user_info";
+                        workflowState.AdditionalData["pending_fields"] = toolResult["missing_fields"];
+                    }
+                    // Add other state transitions
+                }
+
+                // Save state and history
+                await _stateStore.SaveRequestStateAsync(sessionId, workflowState);
+
                 // Save responses to full history
                 fullHistory.AddAssistantMessage(result.Content);
 
                 // Update fullchat history for the session
                 await _stateStore.SaveChatHistoryAsync(sessionId, fullHistory);
+
+                // Log final model response
+                _logger.LogInformation("Model final response: {Response}", result.Content);
 
                 return (result.Content, fullHistory);
 

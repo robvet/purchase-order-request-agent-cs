@@ -5,7 +5,6 @@ using SingleAgent.Prompting;
 using SingleAgent.Storage.Contract;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using static SingleAgent.Junkyard.ValidateProductTool;
 
 namespace SingleAgent.Context
 {
@@ -32,25 +31,43 @@ namespace SingleAgent.Context
         // 5. Performance Logging: It logs how much context was pruned for monitoring efficiency.
         internal ChatHistory BuildModelContext(ChatHistory fullHistory)
         {
-            // Create a new, focused context
-            var modelContext = new ChatHistory();
-
-            // 2. Get only relevant messages (last state-changing sequence)
-            var relevantMessages = GetRelevantMessages(fullHistory);
-            foreach (var message in relevantMessages)
+            try
             {
-                modelContext.AddMessage(message.Role, message.Content);
+                // Create a new, focused context
+                var modelContext = new ChatHistory();
+
+                // 2. Get only relevant messages (last state-changing sequence)
+                var relevantMessages = GetRelevantMessages(fullHistory);
+                foreach (var message in relevantMessages)
+                {
+                    modelContext.AddMessage(message.Role, message.Content);
+                }
+
+                // 3. Add current user input (without injecting state)
+                //modelContext.AddUserMessage(userInput);
+
+                _logger.LogInformation(
+                    "Context pruning: from {OriginalCount} to {FilteredCount} messages",
+                    fullHistory.Count,
+                    modelContext.Count);
+
+                return modelContext;
             }
-
-            // 3. Add current user input (without injecting state)
-            //modelContext.AddUserMessage(userInput);
-
-            _logger.LogInformation(
-                "Context pruning: from {OriginalCount} to {FilteredCount} messages",
-                fullHistory.Count,
-                modelContext.Count);
-
-            return modelContext;
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to prune modexContext from the Agent");
+                var error = new
+                {
+                    method = "BuildModelContext",
+                    error = "exception",
+                    details = ex.Message,
+                    timestamp = DateTime.UtcNow
+                };
+                throw;
+            }
+            
+            
+            
 
             //// Add only the most important previous messages from history based on state
             //AddRelevantHistoryToContext(modelContext, fullHistory, currentState);
