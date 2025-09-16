@@ -28,7 +28,7 @@ namespace SingleAgent.Tools
     {
         private const string ToolName = "ClassifyIntentTool";
         private readonly ILogger<ClassifyIntentTool> _logger; // Logger for this agent
-
+        private const string TracePrefix = "*** CUSTOM:"; // add prefix to custom trace messages for easy identification
 
         public ClassifyIntentTool(ILogger<ClassifyIntentTool> logger)
         {
@@ -48,8 +48,8 @@ namespace SingleAgent.Tools
         {
             try
             {
-                _logger.LogInformation("Processing user request in {ToolName}: user prompt {UserPrompt}", ToolName, userPromptInput);
-                _logger.LogInformation("Processing user request in {ToolName} with reasoning: {Reasoning}", ToolName, reasoning);
+                _logger.LogInformation("{TracePrefix} Processing user request in {ToolName}: user prompt {UserPrompt}", TracePrefix, ToolName, userPromptInput);
+                _logger.LogInformation("{TracePrefix} Processing user request in {ToolName} with reasoning: {Reasoning}", TracePrefix, ToolName, reasoning);
 
                 // Validate parameters
                  if (string.IsNullOrWhiteSpace(userPromptInput))
@@ -71,7 +71,7 @@ namespace SingleAgent.Tools
                     }
                 );
 
-                _logger.LogInformation("Model classification result: {Output}", result.ToString());
+                _logger.LogInformation("{TracePrefix} Model classification result in {ToolName}: {Output}", TracePrefix, ToolName, result.ToString());
 
                 // Parse model response
                 var json = JsonNode.Parse(result.ToString())
@@ -123,7 +123,7 @@ namespace SingleAgent.Tools
 
                 if (needsRetry)
                 {
-                    _logger.LogWarning("Intent/Confidence validation failed. Intent: {Intent}, Confidence: {Confidence}. Retrying.", intent, confidence);
+                    _logger.LogWarning("{TracePrefix} Intent/Confidence validation failed in {ToolName}. Intent: {Intent}, Confidence: {Confidence}. Retrying.", TracePrefix, ToolName, intent, confidence);
 
                     string retryPrompt = prompt + $@"
 
@@ -180,21 +180,22 @@ Confidence: {confidence}";
                 var response = new
                 {
                     toolname = ToolName,
+                    status = "completed",
                     intent = intent,
                     confidence = confidence, 
                     reasoning = reasoning,          // Include model's reasoning
                     timestamp = DateTime.UtcNow,
-                    correlationId = Guid.NewGuid().ToString() // Optional: for audit trail linking
                 };
 
                 return JsonSerializer.Serialize(response);
             }
             catch (JsonException jex)
             {
-                _logger.LogError(jex, "Failed to parse model response");
+                _logger.LogError(jex, "{TracePrefix} Failed to parse model response in {ToolName}", TracePrefix, ToolName);
                 var error = new
                 {
                     toolname = ToolName,
+                    status = "rerun",
                     error = "Invalid model response format",
                     details = jex.Message,
                     reasoning = reasoning,
@@ -204,7 +205,7 @@ Confidence: {confidence}";
             }
             catch (ArgumentException aex)
             {
-                _logger.LogError(aex, "Invalid argument provided");
+                _logger.LogError(aex, "{TracePrefix} Invalid argument provided in {ToolName}", TracePrefix, ToolName);
                 var error = new
                 {
                     toolname = ToolName,
@@ -217,7 +218,7 @@ Confidence: {confidence}";
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Unexpected error in intent classification");
+                _logger.LogError(ex, "{TracePrefix} Unexpected error in intent classification in {ToolName}", TracePrefix, ToolName);
                 var error = new
                 {
                     toolname = ToolName,

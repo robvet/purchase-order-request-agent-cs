@@ -12,7 +12,6 @@ namespace SingleAgent.Models.DTO
             List<ToolStepSummary> toolSteps,
             bool showDebug)
         {
-            var nextStep = jsonNode?["nextStep"]?.ToString();
             var productsNode = jsonNode?["products"];
             var reflection = jsonNode?["reflection"]?.ToString();
             var userPrompt = jsonNode?["userPrompt"]?.ToString();
@@ -32,7 +31,6 @@ namespace SingleAgent.Models.DTO
                 {
                     Reflection = reflection,
                     UserPrompt = userPrompt,
-                    NextStep = nextStep,
                     Products = productsNode,
                     DebugInfo = new DebugInfoDto
                     {

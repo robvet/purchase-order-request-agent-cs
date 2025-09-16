@@ -1,16 +1,8 @@
-using Azure.Core;
 using Azure.Identity;
-using Microsoft.ApplicationInsights.Extensibility;
-using Microsoft.ApplicationInsights.WindowsServer.TelemetryChannel;
-using Microsoft.AspNetCore.DataProtection.KeyManagement;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
-using Microsoft.Identity.Client;
 using Microsoft.SemanticKernel;
 using SingleAgent.Agents;
 using SingleAgent.Context;
 using SingleAgent.Contracts;
-using SingleAgent.Junkyard;
 using SingleAgent.Models;
 using SingleAgent.State;
 using SingleAgent.Storage.Contract;
@@ -18,10 +10,7 @@ using SingleAgent.Storage.Providers;
 using SingleAgent.Telemetry;
 using SingleAgent.Tools;
 using SingleAgent.Tools.SingleAgent.Tools;
-using System;
-using System.Reflection.Metadata;
-using System.Threading.Channels;
-using static System.Runtime.InteropServices.JavaScript.JSType;
+using System.Text;
 
 // Declare logger outside try here for use in catch block
 ILogger? logger = null; 
@@ -52,11 +41,10 @@ try
 
     var builder = WebApplication.CreateBuilder(args);
 
-
-
     // Configure logging for the application.
     // Retrieve Application Insights connection string from user secrets
     var appInsightsConnectionString = configuration["application-insights"] ?? throw new InvalidOperationException("Missing required secret: 'ApplicationInsights:ConnectionString'."); ;
+
 
     // This block sets up both local console logging and Application Insights logging (if a connection string is provided).
     builder.Services.AddLogging(config =>
@@ -120,23 +108,69 @@ try
         }
     });
 
-    // Register Application Insights telemetry services with the dependency injection container.
-    // This enables FULL application insights telemetry: Automatic collection of telemetry data such as requests, dependencies, exceptions, and custom events.
-    // The collected telemetry is sent to the Application Insights resource specified by the connection string above.
-    // Add sampling 
-    builder.Services.Configure<TelemetryConfiguration>(config =>
-    {
-        config.DisableTelemetry = false;
+    // Add Application Insights telemetry to provide monitoring and logging
+    builder.Services.AddApplicationInsightsTelemetry();
 
-        // Configure adaptive sampling with custom percentage
-        var chainBuilder = config.DefaultTelemetrySink.TelemetryProcessorChainBuilder;
-        chainBuilder.UseAdaptiveSampling(maxTelemetryItemsPerSecond: 5);
-        chainBuilder.UseSampling(samplingPercentage: 25.0);
-        chainBuilder.Build();
+    builder.Logging
+     .AddApplicationInsights(
+         configureTelemetryConfiguration: config =>
+         {
+             config.ConnectionString = configuration["application-insights"];
+             // optional: config.TelemetryInitializers.Add(...) etc
+         },
+         configureApplicationInsightsLoggerOptions: options =>
+         {
+             // optional: include scopes, configure exceptions
+             options.TrackExceptionsAsExceptionTelemetry = true;
+         }
+     );
+
+
+    builder.Logging.Services.Configure<LoggerFilterOptions>(options =>
+    {
+        var defaultRule = options.Rules.FirstOrDefault(rule =>
+            rule.ProviderName == "Microsoft.Extensions.Logging.ApplicationInsights.ApplicationInsightsLoggerProvider");
+        if (defaultRule is not null)
+        {
+            options.Rules.Remove(defaultRule);
+        }
     });
 
 
+    //// Adaptive Sampling to limit the volume of telemetry sent to Application Insights.
+    //// Register Application Insights telemetry services with the dependency injection container.
+    //builder.Services.Configure<TelemetryConfiguration>(config =>
+    //{
+    //    var chain = config.DefaultTelemetrySink.TelemetryProcessorChainBuilder;
+    //    chain.UseAdaptiveSampling(
+    //        maxTelemetryItemsPerSecond: 5,
+    //        excludedTypes: "Exception" // keep all exceptions (see caveat below)
+    //    );
+    //    chain.Build();
+    //});
 
+
+    // Fixed-rate Sampling to further reduce telemetry volume.
+    //// Register Application Insights telemetry services with the dependency injection container.
+    //builder.Services.Configure<TelemetryConfiguration>(config =>
+    //{
+    //    var chain = config.DefaultTelemetrySink.TelemetryProcessorChainBuilder;
+    //    chain.UseSampling(samplingPercentage: 10.0); // ~10%
+    //    chain.Build();
+    //});
+
+    //// Hybrid approach: Adaptive Sampling + Fixed-rate Sampling
+    //// Register Application Insights telemetry services with the dependency injection container.
+    //builder.Services.Configure<TelemetryConfiguration>(config =>
+    //{
+    //    config.DisableTelemetry = false;
+
+    //    // Configure adaptive sampling with custom percentage
+    //    var chainBuilder = config.DefaultTelemetrySink.TelemetryProcessorChainBuilder;
+    //    chainBuilder.UseAdaptiveSampling(maxTelemetryItemsPerSecond: 5);
+    //    chainBuilder.UseSampling(samplingPercentage: 25.0);
+    //    chainBuilder.Build();
+    //});
 
 
 
@@ -278,6 +312,28 @@ try
 
     //builder.Services.AddScoped<NearbyAgent>();
     builder.Services.AddScoped<IPurchaseOrderAgent, PurchaseOrderAgent>();
+
+
+
+    builder.Logging.Services.Configure<LoggerFilterOptions>(options =>
+    {
+        StringBuilder levels = new StringBuilder();
+
+        // Log all current filter rules for debugging
+        foreach (var rule in options.Rules)
+        {
+            levels.AppendLine($"Provider: {rule.ProviderName}, Category: {rule.CategoryName}, Level: {rule.LogLevel}");
+            //Console.WriteLine($"Provider: {rule.ProviderName}, Category: {rule.CategoryName}, Level: {rule.LogLevel}");
+            //var levels =+ ($"Provider: {rule.ProviderName}, Category: {rule.CategoryName}, Level: {rule.LogLevel}");
+        }
+
+        var allRules = levels.ToString();
+    });
+
+
+
+
+
 
     var app = builder.Build();
 

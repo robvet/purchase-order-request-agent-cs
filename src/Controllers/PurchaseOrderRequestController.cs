@@ -15,6 +15,8 @@ namespace SingleAgent.Controllers
         private readonly IPurchaseOrderAgent _purchaseOrderAgent ;
         private readonly ILogger<PurchaseOrderRequestController> _logger;
         private readonly TelemetryCollector _telemetryCollector;
+        private const string TracePrefix = "*** CUSTOM:"; // add prefix to custom trace messages for easy identification 
+
         // IHttpContextAccessor is used to access the current HTTP context, allowing us to set cookies
         private readonly IHttpContextAccessor _httpContextAccessor;
 
@@ -54,12 +56,12 @@ namespace SingleAgent.Controllers
         {
             try
             {
-                _logger.LogInformation("Logging user prompt for PO Request: {UserPrompt}", userInputPrompt);
+                _logger.LogInformation("{TracePrefix} Logging user prompt for PO Request: {UserPrompt}", TracePrefix, userInputPrompt);
 
                 // validate input
                 if (string.IsNullOrWhiteSpace(userInputPrompt))
                 {
-                    _logger.LogWarning("Empty or null prompt received.");
+                    _logger.LogWarning("{TracePrefix} Empty or null prompt received.", TracePrefix);
                     return BadRequest("Prompt cannot be empty or null.");
                 }
 
@@ -80,7 +82,7 @@ namespace SingleAgent.Controllers
                 {
                     if (!completion.TrimStart().StartsWith("{"))
                     {
-                        _logger.LogWarning("AI response is not in JSON format. Raw response: {Completion}", completion);
+                        _logger.LogWarning("{TracePrefix} AI response is not in JSON format. Raw response: {Completion}", TracePrefix, completion);
                         var wrappedResponse = new
                         {
                             reflection = completion,
@@ -97,7 +99,7 @@ namespace SingleAgent.Controllers
                 }
                 catch (JsonException jsonEx)
                 {
-                    _logger.LogError(jsonEx, "Failed to parse AI response");
+                    _logger.LogError(jsonEx, "{TracePrefix} Failed to parse AI response", TracePrefix);
                     return StatusCode(500, "Failed to process AI response. Please try again.");
                 }
 
@@ -115,7 +117,6 @@ namespace SingleAgent.Controllers
                     {
                         response.UserPrompt,
                         response.Reflection,
-                        response.NextStep,
                         response.Products,
                         FunctionDebug = functionDebug
                     });
@@ -130,7 +131,7 @@ namespace SingleAgent.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "ProcessPurchaseRequestAsync failed");
+                _logger.LogError(ex, "{TracePrefix} ProcessPurchaseRequestAsync failed", TracePrefix);
                 return StatusCode(500, "Internal server error. Please contact support.");
             }
 
@@ -309,7 +310,7 @@ namespace SingleAgent.Controllers
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogWarning(ex, "Failed to parse tool call JSON");
+                            _logger.LogWarning(ex, "{TracePrefix} Failed to parse tool call JSON", TracePrefix);
                             toolName = "Unknown Tool";
                         }
 
@@ -373,7 +374,7 @@ namespace SingleAgent.Controllers
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogWarning(ex, "Failed to parse tool JSON result");
+                            _logger.LogWarning(ex, "{TracePrefix} Failed to parse tool JSON result", TracePrefix);
                         }
                     }
                     // Look for agent responses
@@ -402,7 +403,7 @@ namespace SingleAgent.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error parsing telemetry to tool steps");
+                _logger.LogError(ex, "{TracePrefix} Error parsing telemetry to tool steps", TracePrefix);
             }
 
             return toolSteps;

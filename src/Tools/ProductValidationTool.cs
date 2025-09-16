@@ -13,6 +13,7 @@ namespace SingleAgent.Tools
         private const string ToolName = "ProductValidationTool";
         private readonly ILogger<ProductValidationTool> _logger; // Logger for this agent
         private readonly IProductRepository _productRepository;
+        private const string TracePrefix = "*** CUSTOM:"; // add prefix to custom trace messages for easy identification 
 
         public ProductValidationTool(ILogger<ProductValidationTool> logger, IProductRepository productRepository)
         {
@@ -30,9 +31,9 @@ namespace SingleAgent.Tools
         {
             try
             {
-                _logger.LogInformation("Processing user request in {ToolName}: {userRequest}", ToolName, userRequest);
-                _logger.LogInformation("Processing user request in {ToolName}:intent {intent}", ToolName, intent);
-                _logger.LogInformation("Processing user request in {ToolName} with reasoning: {Reasoning}", ToolName, reasoning);
+                _logger.LogInformation("{TracePrefix} Processing user request in {ToolName}: {userRequest}", TracePrefix, ToolName, userRequest);
+                _logger.LogInformation("{TracePrefix} Processing user request in {ToolName}:intent {intent}", TracePrefix, ToolName, intent);
+                _logger.LogInformation("{TracePrefix} Processing user request in {ToolName} with reasoning: {Reasoning}", TracePrefix, ToolName, reasoning);
 
                 // Validate parameters
                 if (string.IsNullOrWhiteSpace(userRequest))
@@ -68,15 +69,15 @@ namespace SingleAgent.Tools
 
                     // The LogWarning observability call is vital. It allows you, the developer, to track how often the LLM
                     // makes mistakes and in what contexts, which is invaluable for debugging and fine-tuning the agent's main prompts.
-                    _logger.LogWarning("{ToolName} called with non-purchase intent: {Intent}", ToolName, intent);
+                    _logger.LogWarning("{TracePrefix} {ToolName} called with non-purchase intent: {Intent}", TracePrefix, ToolName, intent);
 
                     var errorResponse = new
                     {
                         ToolName = ToolName,
-                        status = "error",
+                        status = "rerun",
                         intent = intent,
                         error = "wrong_intent",
-                        message = $"This tool validates purchase requests only. The current intent is '{intent}'.",
+                        message = $"{ToolName} validates purchase requests only. The current intent is '{intent}'.",
                         suggestion = "Use a tool appropriate for the current intent.",
                         confidence = 0.0,
                         reasoning = reasoning
@@ -105,7 +106,7 @@ namespace SingleAgent.Tools
                     }
                 );
 
-                _logger.LogInformation("Output from {ToolName} : {Output}", ToolName, result.ToString());
+                _logger.LogInformation("{TracePrefix} Output from {ToolName} : {Output}", TracePrefix, ToolName, result.ToString());
 
                 string rawJson = result.ToString();
                 var json = JsonNode.Parse(rawJson);
@@ -129,33 +130,32 @@ namespace SingleAgent.Tools
                 var response = new
                 {
                     ToolName = ToolName,
-                    status = status,
-                    quantity = quantity,
+                    status = "completed",
                     confidence = confidence,
+                    quantity = quantity,
                     sku = sku,
                     products = products,
                     reasoning = reasoning,
-                    timestamp = DateTime.UtcNow,
-                    correlationId = Guid.NewGuid().ToString()
+                    timestamp = DateTime.UtcNow
                 };
 
                 return JsonSerializer.Serialize(response);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error in {ToolName}", ToolName);
+                _logger.LogError(ex, "{TracePrefix}  Error in {ToolName}", TracePrefix, ToolName);
                 return JsonSerializer.Serialize(new
                 {
                     ToolName = ToolName,
-                    status = "error",
+                    status = "rerun",
                     error = "processing_error",
                     message = "Failed to process product validation details.",
                     details = ex.Message,
-                    reasoning = reasoning
+                    reasoning = reasoning,
+                    timestamp = DateTime.UtcNow
                 });
             }
         }
-
 
         private static class PromptTemplate
         {

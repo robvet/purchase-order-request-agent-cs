@@ -13,11 +13,11 @@ namespace SingleAgent.Context
         private readonly ILogger<ContextPruningService> _logger; // Logger for this agent
         //private readonly JsonSerializerOptions _jsonOptions;
 
-        private static readonly JsonSerializerOptions _jsonOptions = new()
-        {
-            WriteIndented = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        };
+        //private static readonly JsonSerializerOptions _jsonOptions = new()
+        //{
+        //    WriteIndented = true,
+        //    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        //};
 
         public ContextPruningService(ILogger<ContextPruningService> logger)
         {
@@ -38,18 +38,11 @@ namespace SingleAgent.Context
 
                 // 2. Get only relevant messages (last state-changing sequence)
                 var relevantMessages = GetRelevantMessages(fullHistory);
-                foreach (var message in relevantMessages)
-                {
-                    modelContext.AddMessage(message.Role, message.Content);
-                }
 
-                // 3. Add current user input (without injecting state)
-                //modelContext.AddUserMessage(userInput);
-
-                _logger.LogInformation(
-                    "Context pruning: from {OriginalCount} to {FilteredCount} messages",
-                    fullHistory.Count,
-                    modelContext.Count);
+                //_logger.LogInformation(
+                //    "Context pruning: from {OriginalCount} to {FilteredCount} messages",
+                //    fullHistory.Count,
+                //    modelContext.Count);
 
                 return modelContext;
             }
@@ -65,9 +58,14 @@ namespace SingleAgent.Context
                 };
                 throw;
             }
-            
-            
-            
+        }
+
+        private void AddRelevantHistoryToContext(ChatHistory activeContext, ChatHistory fullHistory)
+        {
+            // Look for important tool responses in chat history
+            var toolMessages = fullHistory.Where(m => m.Role == AuthorRole.Tool).ToList();
+            // Add logic to include relevant ones...
+        }
 
             //// Add only the most important previous messages from history based on state
             //AddRelevantHistoryToContext(modelContext, fullHistory, currentState);
@@ -80,7 +78,6 @@ namespace SingleAgent.Context
             //modelContext.AddUserMessage(formattedUserInput);
 
             //return modelContext;
-        }
 
         private IEnumerable<ChatMessageContent> GetRelevantMessages(ChatHistory history)
         {

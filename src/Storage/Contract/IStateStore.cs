@@ -23,6 +23,6 @@ namespace SingleAgent.Storage.Contract
         public string? Department { get; set; }
         public decimal? UnitCost { get; set; }
         public string? Status { get; set; } // "extracting", "policy_check", "compliant", etc.
-        public Dictionary<string, object>? AdditionalData { get; set; }
+        public Dictionary<string, object> AdditionalData { get; set; } = new Dictionary<string, object>();
     }
 }

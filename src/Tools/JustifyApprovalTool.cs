@@ -9,6 +9,7 @@ namespace SingleAgent.Tools
     {
         private const string ToolName = "JustifyApprovalTool";
         private readonly ILogger<JustifyApprovalTool> _logger;
+        private const string TracePrefix = "*** CUSTOM:"; // add prefix to custom trace messages for easy identification 
 
         public JustifyApprovalTool(ILogger<JustifyApprovalTool> logger)
         {
@@ -26,10 +27,10 @@ namespace SingleAgent.Tools
         {
             try
             {
-                _logger.LogInformation("Processing justification in {ToolName}: justification {justification}", ToolName, justification);
-                _logger.LogInformation("Processing item in {ToolName}:item {item}", ToolName, item);
-                _logger.LogInformation("Processing cost in {ToolName}:cost {cost}", ToolName, cost);
-                _logger.LogInformation("Processing reasoning in {ToolName} with reasoning: {Reasoning}", ToolName, reasoning);
+                _logger.LogInformation("{TracePrefix} Processing justification in {ToolName}: justification {justification}", TracePrefix, ToolName, justification);
+                _logger.LogInformation("{TracePrefix} Processing item in {ToolName}:item {item}", TracePrefix, ToolName, item);
+                _logger.LogInformation("{TracePrefix} Processing cost in {ToolName}:cost {cost}", TracePrefix, ToolName, cost);
+                _logger.LogInformation("{TracePrefix} Processing reasoning in {ToolName} with reasoning: {Reasoning}", TracePrefix, ToolName, reasoning);
 
 
                 // validate parameters  
@@ -39,7 +40,7 @@ namespace SingleAgent.Tools
                     return JsonSerializer.Serialize(new
                     {
                         toolname = ToolName,
-                        status = "error",
+                        status = "rerun",
                         error = "invalid_parameters",
                         message = "All parameters are required and must be valid",
                         invalid_parameters = new[] {
@@ -48,6 +49,7 @@ namespace SingleAgent.Tools
                             cost <= 0 ? "cost" : null,
                             string.IsNullOrEmpty(reasoning) ? "reasoning" : null
                         }.Where(p => p != null).ToArray(), // only show invalid params
+                        reasoning = reasoning,
                         timestamp = DateTime.UtcNow
                     });
                 }
@@ -85,6 +87,7 @@ namespace SingleAgent.Tools
                         var deniedResponse = new
                         {
                             toolname = ToolName,
+                            status = "rerun",
                             justification_approved = false,
                             reason = root.GetProperty("reason").GetString(),
                             message = "Your justification needs more specific details to warrant the premium cost.",
@@ -96,7 +99,8 @@ namespace SingleAgent.Tools
                                     "Quantify time savings or efficiency gains from the upgrade",
                                     "Specify software requirements that demand premium specifications"
                                 },
-                            reasoning = reasoning
+                            reasoning = reasoning,
+                            timestamp = DateTime.UtcNow
                         };
                         return JsonSerializer.Serialize(deniedResponse);
                     }
@@ -114,14 +118,12 @@ namespace SingleAgent.Tools
                     var response = new
                     {
                         toolname = ToolName,
-                        status = approved ? "approved" : "denied",
-                        justification_approved = approved,
+                        status = "completed",
+                        justification_approved = true,
                         reason = root.GetProperty("reason").GetString(),
                         message = message,
-                        suggestions = suggestions,
                         reasoning = reasoning,
-                        timestamp = DateTime.UtcNow,
-                        correlationId = Guid.NewGuid().ToString()
+                        timestamp = DateTime.UtcNow
                     };
 
 
@@ -129,11 +131,12 @@ namespace SingleAgent.Tools
                 }
                 catch (JsonException ex)
                 {
-                    _logger.LogError(ex, "Error in {ToolName}", ToolName);
+                    _logger.LogError(ex, "{TracePrefix} Error in {ToolName}", TracePrefix, ToolName);
                     // If parsing fails, return a structured error response with helpful suggestions
                     var fallbackResponse = new
                     {
                         ToolName = ToolName,
+                        status = "rerun",
                         justification_approved = false,
                         reason = "Unable to process justification properly",
                         message = "Please provide a clearer justification for this hardware purchase.",
@@ -147,7 +150,8 @@ namespace SingleAgent.Tools
                             },
                         error = "json_parse_error",
                         details = ex.Message,
-                        reasoning = reasoning
+                        reasoning = reasoning,
+                        timestamp = DateTime.UtcNow
                     };
 
                     return JsonSerializer.Serialize(fallbackResponse);
@@ -156,15 +160,17 @@ namespace SingleAgent.Tools
 
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error in {ToolName}", ToolName);
+                _logger.LogError(ex, "{TracePrefix} Error in {ToolName}", TracePrefix, ToolName);
                 var errorResponse = new
                 {
                     ToolName = ToolName,
+                    status = "rerun",
                     justification_approved = false,
                     reason = $"Justification evaluation failed: {ex.Message}",
                     error = "evaluation_error", 
                     details = ex.Message,
-                    reasoning = reasoning
+                    reasoning = reasoning,
+                    timestamp = DateTime.UtcNow
                 };
 
                 return JsonSerializer.Serialize(errorResponse);

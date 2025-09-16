@@ -14,6 +14,7 @@
         {
             private const string ToolName = "UserValidationTool";
             private readonly ILogger<UserValidationTool> _logger;
+            private const string TracePrefix = "*** CUSTOM:"; // add prefix to custom trace messages for easy identification 
 
             public UserValidationTool(ILogger<UserValidationTool> logger)
             {   
@@ -30,9 +31,9 @@
             {
                 try
                 {
-                    _logger.LogInformation("Capturing userRequest in {ToolName} from request: {UserRequest}", ToolName, userRequest);
-                    _logger.LogInformation("Capturing intent in {ToolName} from request: {UserRequest}", intent, intent);
-                    _logger.LogInformation("Capturing reasoning in {ToolName} from request: {UserRequest}", ToolName, reasoning);
+                    _logger.LogInformation("{TracePrefix} Capturing userRequest in {ToolName} from request: {UserRequest}", TracePrefix, ToolName, userRequest);
+                    _logger.LogInformation("{TracePrefix} Capturing intent in {ToolName} from request: {UserRequest}", TracePrefix, intent, intent);
+                    _logger.LogInformation("{TracePrefix} Capturing reasoning in {ToolName} from request: {UserRequest}", TracePrefix, ToolName, reasoning);
 
                     // Validate parameters
                     if (string.IsNullOrWhiteSpace(userRequest))
@@ -43,7 +44,7 @@
 
                     if (intent != "RequestProduct")
                     {
-                        _logger.LogWarning("UserValidationTool called with non-purchase intent: {Intent} in {ToolName}", intent, ToolName);
+                        _logger.LogWarning("{TracePrefix} UserValidationTool called with non-purchase intent: {Intent} in {ToolName}", TracePrefix, intent, ToolName);
                         return JsonSerializer.Serialize(new
                         {
                             ToolName = ToolName,
@@ -81,7 +82,7 @@
                         response = new
                         {
                             toolname = ToolName,
-                            status = "needs_user_input",
+                            status = "rerun",
                             user_context = new
                             {
                                 email = email,
@@ -91,8 +92,7 @@
                             message = $"Please provide: {string.Join(", ", missingFields)}",
                             confidence = 0.0,
                             reasoning = reasoning,
-                            timestamp = DateTime.UtcNow,
-                            correlationId = Guid.NewGuid().ToString()
+                            timestamp = DateTime.UtcNow
                         };
                     }
                     else
@@ -100,7 +100,7 @@
                         response = new
                         {
                             toolname = ToolName,
-                            status = "complete",
+                            status = "completed",
                             user_context = new
                             {
                                 email = email,
@@ -108,8 +108,7 @@
                             },
                             confidence = 1.0,
                             reasoning = reasoning,
-                            timestamp = DateTime.UtcNow,
-                            correlationId = Guid.NewGuid().ToString()
+                            timestamp = DateTime.UtcNow
                         };
                     }
 
@@ -162,11 +161,11 @@
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error in {ToolName}", ToolName);
+                    _logger.LogError(ex, "{TracePrefix} Error in {ToolName}", TracePrefix, ToolName);
                     return JsonSerializer.Serialize(new
                     {
                         ToolName = ToolName,
-                        status = "error",
+                        status = "rerun",
                         error = "processing_error",
                         message = "Failed to process user context details.",
                         details = ex.Message,

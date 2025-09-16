@@ -4,6 +4,7 @@ using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using Microsoft.VisualBasic;
+using OpenAI.Assistants;
 using SingleAgent.Context;
 using SingleAgent.Contracts;
 using SingleAgent.Models;
@@ -29,6 +30,9 @@ namespace SingleAgent.Agents // Namespace for agent classes
 
         private readonly ContextPruningService _contextPruningService;
         private readonly PurchaseStateReconstructor _stateReconstructor;
+
+        private const string TracePrefix = "*** CUSTOM:"; // add prefix to custom trace messages for easy identification 
+
 
         /// <architecture = "Workflow">
         /// 1) Agents and Tools should be contain orchestration and validation logic. 
@@ -67,29 +71,23 @@ namespace SingleAgent.Agents // Namespace for agent classes
         {
             try
             {
-                _logger.LogInformation("Processing user request: {UserPrompt}", userInput); // Log the user prompt
+                _logger.LogInformation("{TracePrefix} Processing user request: {UserPrompt}", TracePrefix,userInput); // Log the user prompt
+
 
                 // 1. Full History Store (for audit/tracking)
                 var fullHistory = await _stateStore.GetChatHistoryAsync(sessionId) ?? new ChatHistory();
                                                
-                var workflowState = await _stateStore.GetRequestStateAsync(sessionId) ?? new PurchaseRequestState();
-
                 // 2. Add system prompt if new conversation
                 if (fullHistory.Count == 0)
                 {
                     fullHistory.AddSystemMessage(PurchaseOrderPrompts.SystemPrompt());
-                    workflowState.Status = "start";
                 }
 
                 // 3. Add current input to full history
                 fullHistory.AddUserMessage(userInput);
 
                 // 4. Let ContextPruningService build model context
-                var modelContext = _contextPruningService.BuildModelContext(fullHistory);
-
-                modelContext.AddUserMessage($@"Current Workflow State:
-                    {JsonSerializer.Serialize(workflowState, _jsonOptions)}
-                    User Input: {userInput}");
+                //var modelContext = _contextPruningService.BuildModelContext(fullHistory);
 
 
                 //// 4. Build model context (only what's needed)  
@@ -128,47 +126,18 @@ namespace SingleAgent.Agents // Namespace for agent classes
 
                 // Get model response using focused context
                 var result = await chatService.GetChatMessageContentAsync(
-                    modelContext,  // Only what model needs
+                    fullHistory,  // Only what model needs
                     executionSettings: settings,
                     kernel: _kernel
                 );
 
-
-                // Get tool responses
-                var toolResponses = modelContext.Where(m => m.Role == AuthorRole.Tool)
-                    .Select(m => m.Content)
-                    .ToList();
-
-                // Update workflow state based on tool responses
-                foreach (var response in toolResponses)
-                {
-                    var toolResult = JsonNode.Parse(response);
-
-                    // Update state based on tool responses
-                    if (toolResult?["intent"] != null)
-                    {
-                        workflowState.Intent = toolResult["intent"].ToString();
-                        workflowState.Status = "intent_classified";
-                    }
-                    else if (toolResult?["status"]?.ToString() == "needs_user_input")
-                    {
-                        workflowState.Status = "awaiting_user_info";
-                        workflowState.AdditionalData["pending_fields"] = toolResult["missing_fields"];
-                    }
-                    // Add other state transitions
-                }
-
-                // Save state and history
-                await _stateStore.SaveRequestStateAsync(sessionId, workflowState);
-
-                // Save responses to full history
+                // Save assistant response and history
                 fullHistory.AddAssistantMessage(result.Content);
 
                 // Update fullchat history for the session
                 await _stateStore.SaveChatHistoryAsync(sessionId, fullHistory);
 
-                // Log final model response
-                _logger.LogInformation("Model final response: {Response}", result.Content);
+                _logger.LogInformation("{TracePrefix} Model final response: {Response}", TracePrefix, result.Content);
 
                 return (result.Content, fullHistory);
 
@@ -235,7 +204,7 @@ namespace SingleAgent.Agents // Namespace for agent classes
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error in {Class}: {ErrorMessage}", GetType().Name, ex.Message);
+                _logger.LogError(ex, "{TracePrefix} Error in {Class}: {ErrorMessage}", TracePrefix, GetType().Name, ex.Message);
                 return ("An unexpected error occurred while processing your request: " + ex.Message, new ChatHistory());
             }
         }

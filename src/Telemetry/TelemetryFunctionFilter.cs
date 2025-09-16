@@ -10,6 +10,7 @@ namespace SingleAgent.Telemetry
         private readonly ILogger<TelemetryFunctionFilter> _logger;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly JsonSerializerOptions _jsonOptions;
+        private const string TracePrefix = "*** CUSTOM:"; // add prefix to custom trace messages for easy identification 
 
         public TelemetryFunctionFilter(
             ILogger<TelemetryFunctionFilter> logger, 
@@ -52,7 +53,7 @@ namespace SingleAgent.Telemetry
             // Keep simple backward compatible telemetry
             telemetryCollector.Add($"[FUNCTION_CALL] {function.Name}");
             
-            _logger.LogInformation("Function Starting: {FunctionName}", function.Name);
+            _logger.LogInformation("{TracePrefix} Function Starting: {FunctionName}", TracePrefix, function.Name);
 
             try
             {
@@ -63,14 +64,14 @@ namespace SingleAgent.Telemetry
                 var result = context.Result?.GetValue<object>();
                 telemetryCollector.RecordFunctionResult(function.Name, result);
                 
-                _logger.LogInformation("Function Completed: {FunctionName}", function.Name);
+                _logger.LogInformation("{TracePrefix} Function Completed: {FunctionName}", TracePrefix, function.Name);
             }
             catch (Exception ex)
             {
                 // Record error for debugging
                 telemetryCollector.RecordFunctionError(function.Name, ex.Message);
                 
-                _logger.LogError(ex, "Function Failed: {FunctionName}", function.Name);
+                _logger.LogError(ex, "{TracePrefix} Function Failed: {FunctionName}", TracePrefix, function.Name);
                 throw;
             }
         }

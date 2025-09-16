@@ -1,6 +1,7 @@
 using Microsoft.SemanticKernel;
 using SingleAgent.Utlls;
 using System.ComponentModel;
+using System.Diagnostics.Eventing.Reader;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -9,6 +10,7 @@ public class CheckComplianceTool
 {
     private const string ToolName = "CheckComplianceTool";
     private readonly ILogger<CheckComplianceTool> _logger;
+    private const string TracePrefix = "*** CUSTOM:"; // add prefix to custom trace messages for easy identification
 
     public CheckComplianceTool(ILogger<CheckComplianceTool> logger)
     {
@@ -28,12 +30,12 @@ public class CheckComplianceTool
     {
         try
         {
-            _logger.LogInformation("Processing category in {ToolName}: {category}", ToolName, category);
-            _logger.LogInformation("Processing SKU in {ToolName}: {sku}", ToolName, sku);
-            _logger.LogInformation("Processing quantity in {ToolName}: {quantity}", ToolName, quantity);
-            _logger.LogInformation("Processing unit cost in {ToolName}: {unitCost}", ToolName, unitCost);
-            _logger.LogInformation("Processing reasoning in {ToolName}: {reasoning}", ToolName, reasoning);
-            _logger.LogInformation("Processing department in {ToolName}: {department}", ToolName, department);
+            _logger.LogInformation("{TracePrefix} Processing category in {ToolName}: {category}", TracePrefix, ToolName, category);
+            _logger.LogInformation("{TracePrefix} Processing SKU in {ToolName}: {sku}", TracePrefix, ToolName, sku);
+            _logger.LogInformation("{TracePrefix} Processing quantity in {ToolName}: {quantity}", TracePrefix, ToolName, quantity);
+            _logger.LogInformation("{TracePrefix} Processing unit cost in {ToolName}: {unitCost}", TracePrefix, ToolName, unitCost);
+            _logger.LogInformation("{TracePrefix} Processing reasoning in {ToolName}: {reasoning}", TracePrefix, ToolName, reasoning);
+            _logger.LogInformation("{TracePrefix} Processing department in {ToolName}: {department}", TracePrefix,  ToolName, department);
 
             // validate parameters  
             if (string.IsNullOrWhiteSpace(category) || string.IsNullOrWhiteSpace(sku) ||
@@ -42,7 +44,7 @@ public class CheckComplianceTool
                 return JsonSerializer.Serialize(new
                 {
                     toolname = ToolName,
-                    status = "error",
+                    status = "rerun",
                     error = "invalid_parameters",
                     message = "All parameters except department are required and must be valid",
                     category = category,
@@ -77,25 +79,42 @@ public class CheckComplianceTool
             var compliant = json["compliant"]?.GetValue<bool>() ?? false;
             var violations = json["violations"]?.AsArray()?.Select(v => v?.ToString()).ToList() ?? new List<string>();
 
-            var response = new
+            object response = null;
+
+            if (compliant)
             {
-                toolname = ToolName,
-                status = compliant ? "compliant" : "non_compliant",
-                violations = violations,
-                reasoning = reasoning,
-                timestamp = DateTime.UtcNow,
-                correlationId = Guid.NewGuid().ToString()
-            };
+                response = new
+                {
+                    toolname = ToolName,
+                    status = "completed",
+                    IsCompliant = true,
+                    violations = violations,
+                    reasoning = reasoning,
+                    timestamp = DateTime.UtcNow
+                };
+            }
+            else
+            {
+                response = new
+                {
+                    toolname = ToolName,
+                    status = "rerun",
+                    IsCompliant = false,
+                    violations = violations,
+                    reasoning = reasoning,
+                    timestamp = DateTime.UtcNow
+                };
+            }
 
             return JsonSerializer.Serialize(response);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error in {ToolName}", ToolName);
+            _logger.LogError(ex, "{TracePrefix} Error in {ToolName}", TracePrefix, ToolName);
             return JsonSerializer.Serialize(new
             {
                 toolname = ToolName,
-                status = "error",
+                status = "rerun",
                 error = "compliance_check_failed",
                 message = $"Failed to check compliance: {ex.Message}",
                 reasoning,
