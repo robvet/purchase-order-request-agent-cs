@@ -1,13 +1,23 @@
-using Azure.Core;
 using Azure.Identity;
+using Microsoft.ApplicationInsights.Channel;
+using Microsoft.ApplicationInsights.Extensibility;
+using Microsoft.AspNetCore.Session;
 using Microsoft.SemanticKernel;
 using SingleAgent.Agents;
+using SingleAgent.Context;
 using SingleAgent.Contracts;
 using SingleAgent.Models;
+using SingleAgent.Plubming;
+using SingleAgent.Plumbing;
+using SingleAgent.State;
 using SingleAgent.Storage.Contract;
 using SingleAgent.Storage.Providers;
 using SingleAgent.Telemetry;
 using SingleAgent.Tools;
+using SingleAgent.Tools.SingleAgent.Tools;
+using System;
+using System.Diagnostics;
+using System.Text;
 
 // Declare logger outside try here for use in catch block
 ILogger? logger = null; 
@@ -26,9 +36,6 @@ try
     var tenantIdOverride = configuration["tenant-id-override"];
     
     bool isLocalDev = configuration["ASPNETCORE_ENVIRONMENT"]?.Equals("Development", StringComparison.OrdinalIgnoreCase) ?? false;
-    
-    // Retrieve Application Insights connection string from user secrets
-    var appInsightsConnectionString = configuration["application-insights"] ?? throw new InvalidOperationException("Missing required secret: 'ApplicationInsights:ConnectionString'."); ;
 
     // Azure OpenAI configuration
     string openai_key = configuration["openai-key"] ?? throw new InvalidOperationException("Missing required secret: 'openai-key'.");
@@ -41,25 +48,181 @@ try
 
     var builder = WebApplication.CreateBuilder(args);
 
-    builder.Services.AddLogging(config =>
-    {
-        config.AddConsole();
-        config.SetMinimumLevel(LogLevel.Information);
+    // Configure logging/telemetry for the application.
+    var appInsightsConnectionString = configuration["application-insights"] ??
+    throw new InvalidOperationException("Missing required secret: 'application-insights'");
 
-        if (!string.IsNullOrEmpty(appInsightsConnectionString))
+    // For automatic logging: Enables auto-instrumentation for Application Insights telemetry
+    // Enables automatic collection of telemetry data (requests, dependencies, exceptions, etc.) without writing code
+    // Also enables the TelemetryClient for custom logging via ILogger
+    builder.Services.AddApplicationInsightsTelemetry(options =>
+    {
+        options.ConnectionString = appInsightsConnectionString;
+    });
+
+    // Enable to route custom iLogger messages (_logger.Information(blah)) to Application Insights
+    builder.Logging
+        // Write logs to terminal and Visual Studio output window.
+        .AddConsole()
+        // Only log Information and above (Warning, Error, Critical).
+        .SetMinimumLevel(LogLevel.Information)
+        // Send logs to Azure Application Insights.
+        .AddApplicationInsights(
+            configureTelemetryConfiguration: config => config.ConnectionString = appInsightsConnectionString,
+            configureApplicationInsightsLoggerOptions: options =>
+            {
+                // Ensures exceptions are tracked as exception telemetry
+                options.TrackExceptionsAsExceptionTelemetry = true;
+            }
+        );
+
+    // Remove the default Application Insights logging filter rule.
+    // By default, Application Insights may filter out some log levels or categories.
+    // This code finds and removes the default rule for the Application Insights logger provider,
+    // allowing you to control log filtering explicitly elsewhere if needed.
+    builder.Logging.Services.Configure<LoggerFilterOptions>(options =>
+    {
+        var defaultRule = options.Rules.FirstOrDefault(rule =>
+            rule.ProviderName == "Microsoft.Extensions.Logging.ApplicationInsights.ApplicationInsightsLoggerProvider");
+        if (defaultRule is not null)
         {
-            config.AddApplicationInsights(
-                configureTelemetryConfiguration: telemetryConfig =>
-                {
-                    telemetryConfig.ConnectionString = appInsightsConnectionString;
-                },
-                configureApplicationInsightsLoggerOptions: _ => { }
-            );
+            options.Rules.Remove(defaultRule);
         }
     });
 
-    // Add Application Insights telemetry to provide monitoring and logging
-    builder.Services.AddApplicationInsightsTelemetry();
+
+    //// Configure logging for the application.
+    //// Retrieve Application Insights connection string from user secrets
+    //var appInsightsConnectionString = configuration["application-insights"] ?? throw new InvalidOperationException("Missing required secret: 'ApplicationInsights:ConnectionString'."); ;
+
+
+    //// This block sets up both local console logging and Application Insights logging (if a connection string is provided).
+    //builder.Services.AddLogging(config =>
+    //{
+    //    // Add logging output to the local console view. This is useful for local development and debugging,
+    //    // as log messages will appear in the terminal or Visual Studio output window.
+    //    config.AddConsole();
+
+    //    // Set the minimum log level to Information.
+    //    // This means only log messages with severity Information or higher (Warning, Error, Critical) will be recorded.
+    //    // Debug and Trace level logs will be ignored unless this is set lower.
+
+    //    // LogLevel options (from most to least diagnostic traffic):
+    //    // Verbose(0) – very chatty diagnostics for deep debugging; avoid in prod except short bursts.
+    //    // Information(1) – normal app lifecycle and business events(start / stop, key state changes).
+    //    // Warning(2) – abnormal / transient conditions(retries, partial failures, degraded paths).
+    //    // Error(3) – operation failed or handled exception; requires investigation.
+    //    // Critical(4) – service / app failure or data loss; page someone.
+    //    config.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Information);
+
+    //    // If an Application Insights connection string is available, configure Application Insights logging.
+    //    // Application Insights is the cloud-based telemetry and monitoring service from Azure.
+    //    // It allows you to collect, analyze, and act on telemetry data from your application.
+    //    if (!string.IsNullOrEmpty(appInsightsConnectionString))
+    //    {
+    //        config.AddApplicationInsights(
+
+    //            // Activate telemetry configuration with connection string to send EXPLICIT "LOGGING" messages (via iLogger commands).
+    //            // Know that some auto-instrumentation supported by .NET: Request logging, dependency tracking, and exception logging.
+    //            // Python auto-instrumentation not supported at this time.
+    //            configureTelemetryConfiguration: telemetryConfig =>
+    //            {
+    //                telemetryConfig.ConnectionString = appInsightsConnectionString;
+    //            },
+
+    //            // Optionally configure Application Insights logger options.
+    //            // In this case, lambda specifies that no additional options are set.
+    //            configureApplicationInsightsLoggerOptions: _ => { }
+
+    //            // Uncomment the following block to customize logging filters.
+    //            //configureApplicationInsightsLoggerOptions: options =>
+    //            //{
+    //            //    // Only log warnings and above for Microsoft categories
+    //            //    options.FilterLogCategories.Add("Microsoft", Microsoft.Extensions.Logging.LogLevel.Warning);
+
+    //            //    // Only log errors and above for System categories
+    //            //    options.FilterLogCategories.Add("System", Microsoft.Extensions.Logging.LogLevel.Error);
+
+    //            //    // You can also set a global minimum level
+    //            //    options.Filter = (category, logLevel) =>
+    //            //    {
+    //            //        // Example: Only log Information and above for your app's namespace
+    //            //        if (category.StartsWith("SingleAgent"))
+    //            //            return logLevel >= Microsoft.Extensions.Logging.LogLevel.Information;
+    //            //        return true;
+    //            //    };
+    //            //}
+
+
+    //        );
+    //    }
+    //});
+
+    //// Add Application Insights telemetry to provide monitoring and logging
+    //builder.Services.AddApplicationInsightsTelemetry();
+
+    //builder.Logging
+    // .AddApplicationInsights(
+    //     configureTelemetryConfiguration: config =>
+    //     {
+    //         config.ConnectionString = configuration["application-insights"];
+    //         // optional: config.TelemetryInitializers.Add(...) etc
+    //     },
+    //     configureApplicationInsightsLoggerOptions: options =>
+    //     {
+    //         // optional: include scopes, configure exceptions
+    //         options.TrackExceptionsAsExceptionTelemetry = true;
+    //     }
+    // );
+
+
+    //builder.Logging.Services.Configure<LoggerFilterOptions>(options =>
+    //{
+    //    var defaultRule = options.Rules.FirstOrDefault(rule =>
+    //        rule.ProviderName == "Microsoft.Extensions.Logging.ApplicationInsights.ApplicationInsightsLoggerProvider");
+    //    if (defaultRule is not null)
+    //    {
+    //        options.Rules.Remove(defaultRule);
+    //    }
+    //});
+
+
+    //// Adaptive Sampling to limit the volume of telemetry sent to Application Insights.
+    //// Register Application Insights telemetry services with the dependency injection container.
+    //builder.Services.Configure<TelemetryConfiguration>(config =>
+    //{
+    //    var chain = config.DefaultTelemetrySink.TelemetryProcessorChainBuilder;
+    //    chain.UseAdaptiveSampling(
+    //        maxTelemetryItemsPerSecond: 5,
+    //        excludedTypes: "Exception" // keep all exceptions (see caveat below)
+    //    );
+    //    chain.Build();
+    //});
+
+
+    // Fixed-rate Sampling to further reduce telemetry volume.
+    //// Register Application Insights telemetry services with the dependency injection container.
+    //builder.Services.Configure<TelemetryConfiguration>(config =>
+    //{
+    //    var chain = config.DefaultTelemetrySink.TelemetryProcessorChainBuilder;
+    //    chain.UseSampling(samplingPercentage: 10.0); // ~10%
+    //    chain.Build();
+    //});
+
+    //// Hybrid approach: Adaptive Sampling + Fixed-rate Sampling
+    //// Register Application Insights telemetry services with the dependency injection container.
+    //builder.Services.Configure<TelemetryConfiguration>(config =>
+    //{
+    //    config.DisableTelemetry = false;
+
+    //    // Configure adaptive sampling with custom percentage
+    //    var chainBuilder = config.DefaultTelemetrySink.TelemetryProcessorChainBuilder;
+    //    chainBuilder.UseAdaptiveSampling(maxTelemetryItemsPerSecond: 5);
+    //    chainBuilder.UseSampling(samplingPercentage: 25.0);
+    //    chainBuilder.Build();
+    //});
+
+
 
     builder.Services.AddControllers()
         .AddJsonOptions(options =>
@@ -126,16 +289,10 @@ try
 
     // Register tools with the kernel
     kernelBuilder.Plugins.AddFromType<ClassifyIntentTool>();
-    kernelBuilder.Plugins.AddFromType<ValidateProductTool>();   
-    kernelBuilder.Plugins.AddFromType<ExtractDetailsTool>();
+    kernelBuilder.Plugins.AddFromType<UserValidationTool>();   
+    kernelBuilder.Plugins.AddFromType<ProductValidationTool>();
     kernelBuilder.Plugins.AddFromType<CheckComplianceTool>();
     kernelBuilder.Plugins.AddFromType<JustifyApprovalTool>();
-
-    //kernelBuilder.Plugins.AddFromType<ClassifyRequestTool>();
-    //kernelBuilder.Plugins.AddFromType<ShowQualifiedProductsTool>();
-    //kernelBuilder.Plugins.AddFromType<SecondChoiceOptimizerTool>();
-    //kernelBuilder.Plugins.AddFromType<SubmitToERPTool>();
-
 
     //kernelBuilder.Services.AddScoped<TelemetryCollector>();
     // Add this line for the logger
@@ -147,6 +304,9 @@ try
     kernelBuilder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
     kernelBuilder.Services.AddScoped<IProductRepository, InMemoryProductRepository>();
 
+    builder.Services.AddScoped<ContextPruningService>();
+    builder.Services.AddScoped<PurchaseStateReconstructor>();
+ 
     var kernel = kernelBuilder.Build();
 
     // Register Kernel as singleton
@@ -169,7 +329,7 @@ try
     //    c.OperationFilter<AddShowDebugHeaderParameter>();
     //});
 
-    // DEBUG: List all registered plugins and functions (Semantic Kernel 1.17.2)
+    // DEBUG Code: List all registered plugins and functions (Semantic Kernel 1.17.2)
     //foreach (var plugin in kernel.Plugins)
     //{
     //    Debug.WriteLine($"Plugin: {plugin.Name}");
@@ -197,7 +357,33 @@ try
     //builder.Services.AddScoped<NearbyAgent>();
     builder.Services.AddScoped<IPurchaseOrderAgent, PurchaseOrderAgent>();
 
+    ////// Debug code that determines logging level
+    ////builder.Logging.Services.Configure<LoggerFilterOptions>(options =>
+    ////{
+    ////    StringBuilder levels = new StringBuilder();
+
+    ////    // Log all current filter rules for debugging
+    ////    foreach (var rule in options.Rules)
+    ////    {
+    ////        levels.AppendLine($"Provider: {rule.ProviderName}, Category: {rule.CategoryName}, Level: {rule.LogLevel}");
+    ////        //Console.WriteLine($"Provider: {rule.ProviderName}, Category: {rule.CategoryName}, Level: {rule.LogLevel}");
+    ////        //var levels =+ ($"Provider: {rule.ProviderName}, Category: {rule.CategoryName}, Level: {rule.LogLevel}");
+    ////    }
+
+    ////    var allRules = levels.ToString();
+    ////});
+
+    // Middleware to add session ID to each logging entry to associate telemetry
+    //app.UseMiddleware<SessionTrackingMiddleware>();
+    // Another Claude disaster
+    //builder.Services.AddHttpContextAccessor();
+    //builder.Services.AddSingleton<ITelemetryInitializer, SessionTelemetryInitializer>();
+
     var app = builder.Build();
+
+    // Middleware (should have stayed here)
+    // Another Claude disaster
+    // app.UseMiddleware<CustomSessionMiddleware>();
 
     logger = app.Services.GetRequiredService<ILogger<Program>>();
 
