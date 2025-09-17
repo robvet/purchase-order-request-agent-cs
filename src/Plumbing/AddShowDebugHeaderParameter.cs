@@ -1,7 +1,7 @@
 ﻿using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
-
-namespace SingleAgent.Uiltities
+    
+namespace SingleAgent.Plubming
 {
     public class AddShowDebugHeaderParameter : IOperationFilter
     {

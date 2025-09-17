@@ -70,7 +70,7 @@ Workflow Rules:
      - STOP all further tool execution
      - Request missing information from user
      - Do not proceed until all user details are provided
-   • Required fields: email, name, department, supervisor
+   • Required fields: email, department
 
 3. Product Validation (ProductValidationTool)
    • Validates against supported products

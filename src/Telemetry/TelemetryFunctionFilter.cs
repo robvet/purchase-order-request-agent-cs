@@ -10,7 +10,9 @@ namespace SingleAgent.Telemetry
         private readonly ILogger<TelemetryFunctionFilter> _logger;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly JsonSerializerOptions _jsonOptions;
+        private const string IdentifierForNoLog = "InvokePromptAsync";
         private const string TracePrefix = "*** CUSTOM:"; // add prefix to custom trace messages for easy identification 
+
 
         public TelemetryFunctionFilter(
             ILogger<TelemetryFunctionFilter> logger, 
@@ -37,7 +39,7 @@ namespace SingleAgent.Telemetry
             var function = context.Function;
 
             // Do not capture telemetry for internal Semantic Kernel calls
-            if (function.Name.StartsWith("InvokePromptAsync"))
+            if (function.Name.StartsWith(IdentifierForNoLog))
             {
                 await next(context);
                 return;

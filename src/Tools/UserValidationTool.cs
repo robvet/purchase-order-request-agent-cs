@@ -1,8 +1,21 @@
-﻿namespace SingleAgent.Tools
+﻿using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.VisualBasic;
+using System.Collections.Generic;
+using System.Numerics;
+using System.Text.RegularExpressions;
+using static Azure.Core.HttpHeader;
+
+namespace SingleAgent.Tools
 {
     using global::SingleAgent.Contracts;
+    using Microsoft.AspNetCore.Http.HttpResults;
+    using Microsoft.AspNetCore.Razor.TagHelpers;
+    using Microsoft.AspNetCore.Routing;
     using Microsoft.SemanticKernel;
+    using Microsoft.VisualBasic;
     using Models.DTO;
+    using System.Collections.Generic;
     using System.ComponentModel;
     using System.Text.Json;
     using System.Text.Json.Nodes;
@@ -14,7 +27,21 @@
         {
             private const string ToolName = "UserValidationTool";
             private readonly ILogger<UserValidationTool> _logger;
-            private const string TracePrefix = "*** CUSTOM:"; // add prefix to custom trace messages for easy identification 
+            private const string TracePrefix = "*** CUSTOM:"; // add prefix to custom trace messages for easy identification
+
+            private readonly string[] _departmentNames =
+            {
+                "Engineering", 
+                "Marketing", 
+                "Sales", "HR", 
+                "Finance", 
+                "Information Technology", 
+                "Operations", 
+                "Customer Support", 
+                "Administration", 
+                "Legal", 
+                "Research and Development"
+            };
 
             public UserValidationTool(ILogger<UserValidationTool> logger)
             {   
@@ -58,26 +85,104 @@
                     }
 
                     // Extract potential identifiers from request using LLM
-                    var prompt = PromptTemplate.ExtractUserContextPrompt(userRequest).Replace("{{userRequest}}", userRequest);  // Add this line to replace placeholder
-                    
-                    //var prompt = PromptTemplate.ExtractUserContextPrompt(userRequest);
+                    var prompt = PromptTemplate.ExtractUserContextPrompt(userRequest)
+                        .Replace("{{userRequest}}", userRequest);
+
                     var result = await kernel.InvokePromptAsync(prompt, new KernelArguments
                     {
-                        ["userRequest"] = userRequest
+                        ["userRequest"] = userRequest,
                     });
 
+
+                    // In ValidateUserAsync:
+                    _logger.LogInformation("INPUT - Raw userRequest: '{UserRequest}'", userRequest);
+
+                    
+                    // Debugging Code
+                    //// Extract potential identifiers from request using LLM
+                    //var prompt2 = PromptTemplate.ExtractUserContextPrompt(userRequest, _departmentNames);
+
+                    //// Capture debug info to variables
+                    //var debugInput = $"INPUT - Raw userRequest: '{userRequest}'";
+                    //var debugPrompt = $"PROMPT - Full prompt being sent to LLM:\n{prompt}";
+
+                    ////var result2 = await kernel.InvokePromptAsync(prompt, new KernelArguments
+                    ////{
+                    ////    ["userRequest"] = userRequest
+                    ////});
+
+                    //var debugOutput = $"OUTPUT - Raw LLM Response:\n{result}";
+
+
+
+                    // Parse LLM response
                     var extractedContext = JsonNode.Parse(result.ToString());
 
+                    // Extract values returned by LLM
                     var email = extractedContext?["email"]?.ToString();
-                    var department = extractedContext?["department"]?.ToString();
 
-                    // After extracting values
-                    var missingFields = new List<string>();
-                    if (string.IsNullOrWhiteSpace(email)) missingFields.Add("email");
-                    if (string.IsNullOrWhiteSpace(department)) missingFields.Add("department");
+                    //// Validate required top-level properties exist
+                    //if (extractedContext?["department"] == null)
+                    //{
+                    //    throw new InvalidOperationException($"{TracePrefix} LLM response in {ToolName} is missing required top-level properties");
+                    //}
+
+                    var departmentInfo = extractedContext?["department"];
+
+                    bool isDepartmentAccepted = false;
+                    string? matchedDepartment = null;
+                    string? providedDepartment = null;
+
+                    // Determine if department was accepted based on confidence
+                    isDepartmentAccepted = departmentInfo?["accepted"]?.GetValue<bool>() ?? false;
+
+                    if (!isDepartmentAccepted)
+                    {
+                        // extract the provided value for logging
+                        providedDepartment = departmentInfo?["provided_value"]?.ToString();
+                    }
+                    else
+                    {
+                        // Department accepted, proceed as normal, and extract the matched department
+                        matchedDepartment = departmentInfo?["matched_department"]?.ToString();
+                    }
+
+                    // log extracted email value
+                    if (string.IsNullOrEmpty(email))
+                    {
+                        _logger.LogWarning("{TracePrefix} User Email not found in user request in {ToolName}", TracePrefix, ToolName);
+                    }
+                    else
+                    {
+                        _logger.LogInformation("{TracePrefix} Extracted Email: {Email} in {ToolName}", TracePrefix, email, ToolName);
+                    }
+
+                    // log extracted department value
+
+                    if (isDepartmentAccepted)
+                    {
+                        _logger.LogInformation("{TracePrefix} Extracted Department: {Department} in {ToolName}", TracePrefix, departmentInfo?["matched_department"]?.ToString(), ToolName);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("{TracePrefix} Department '{providedDepartment}' not accepted (confidence too low) in {ToolName}", TracePrefix, providedDepartment, ToolName);
+                    }
+
+                    //// After extracting values
+                    //var missingFields = new List<string>();
+                    //if (string.IsNullOrWhiteSpace(email)) missingFields.Add("email");
+                    //if (string.IsNullOrWhiteSpace(matchedDepartment)) missingFields.Add("department");
+
+                    // Get missing fields from LLM response
+                    var llmMissingFields = extractedContext?["missing_fields"]?
+                        .AsArray()
+                        .Select(node => node?.GetValue<string>())
+                        .Where(field => !string.IsNullOrEmpty(field))
+                        .ToList() ?? new List<string>();
 
                     object response;
-                    if (missingFields.Any())
+
+                    if (llmMissingFields.Any())
                     {
                         response = new
                         {
@@ -86,11 +191,13 @@
                             user_context = new
                             {
                                 email = email,
-                                department = department
+                                department = matchedDepartment
                             },
-                            missing_fields = missingFields,
-                            message = $"Please provide: {string.Join(", ", missingFields)}",
-                            confidence = 0.0,
+                            missing_fields = llmMissingFields,
+                            incorrect_department_name = departmentInfo?["accepted"]?.GetValue<bool>() == false ? departmentInfo?["provided_value"]?.ToString() : null,
+                            // return department names if department is empty
+                            department_names = string.IsNullOrWhiteSpace(providedDepartment) ? _departmentNames : null,
+                            message = $"Please provide: {string.Join(", ", llmMissingFields)}",
                             reasoning = reasoning,
                             timestamp = DateTime.UtcNow
                         };
@@ -104,9 +211,8 @@
                             user_context = new
                             {
                                 email = email,
-                                department = department
+                                department = matchedDepartment
                             },
-                            confidence = 1.0,
                             reasoning = reasoning,
                             timestamp = DateTime.UtcNow
                         };
@@ -114,50 +220,6 @@
 
                     return JsonSerializer.Serialize(response);
 
-
-
-                    //var response = new
-                    //{
-                    //    toolname = ToolName,
-                    //    status = missingFields.Any() ? "incomplete" : "complete",
-                    //    user_context = new
-                    //    {
-                    //        employee_id = employeeId,
-                    //        full_name = fullName,
-                    //        email = email,
-                    //        department = department,
-                    //        supervisor_email = supervisorEmail
-                    //    },
-                    //    missing_fields = missingFields,
-                    //    message = missingFields.Any()
-                    //        ? $"Please provide: {string.Join(", ", missingFields)}"
-                    //        : null,
-                    //    confidence = 1.0,
-                    //    reasoning = reasoning,
-                    //    timestamp = DateTime.UtcNow,
-                    //    correlationId = Guid.NewGuid().ToString()
-                    //};
-
-
-                    //var response = new
-                    //{
-                    //    ToolName = ToolName,
-                    //    status = "complete",
-                    //    user_context = new
-                    //    {
-                    //        employee_id = employeeId,
-                    //        full_name = fullName,
-                    //        email = email,
-                    //        department = department,
-                    //        supervisor_email = supervisorEmail
-                    //    },
-                    //    confidence = 1.0,
-                    //    reasoning = reasoning,
-                    //    timestamp = DateTime.UtcNow,
-                    //    correlationId = Guid.NewGuid().ToString()
-                    //};
-
-                    //return JsonSerializer.Serialize(response);
                 }
                 catch (Exception ex)
                 {
@@ -177,82 +239,75 @@
             private static class PromptTemplate
             {
                 public static string ExtractUserContextPrompt(string userRequest)
-                {
-                    return @"Extract user identifying information from the request.
+                    {
+                        // Clever code from LM - inserts newline, hyphen, space between each department name
+                        // - Engineering
+                        // -Marketing
+                        // - Sales
+                        // - HR
+                        //var departmentList = string.Join("\n- ", validDepartments);
+                        // var departmentList = string.Join("\n", validDepartments.Select(d => d.Trim()));
+                        //var departmentList = string.Join("\n", validDepartments.Select(d => $"- {d.Trim()}"));
+
+                    return @"Extract and validate user information from userRequest.
 
 User request: {{userRequest}}
 
-Look for and extract:
-- Email address
-- Department name
+userRequest Processing Rules:
+- If userRequest is formatted as 'Email: X, Department: Y', parse both values
+- If userRequest contains a single value:
+    * If it matches a department name, treat as department only
+    * If it matches email format, treat as email only
+- Match department names case-insensitive
+
+Valid department names:
+-Engineering
+- Marketing
+- Sales
+- HR
+- Finance
+- Information Technology
+- Operations
+- Customer Support
+- Administration
+- Legal
+- Research and Development
+
+Department Validation Rules:
+-Exact match = 100 % confidence
+- Common abbreviations(e.g., 'IT' → 'Information Technology') = 90 % confidence
+- Partial matches with clear intent (e.g., 'Tech' → 'Information Technology') = 85% confidence
+- Similar terms (e.g., 'R&D' → 'Research and Development') = 80% confidence
+- Anything less certain = Below 80% confidence, treat as no match
 
 Return STRICTLY valid JSON with these fields:
 {
-    ""status"": ""complete"" | ""incomplete"",
+    {
+        ""status"": ""complete"" | ""incomplete"",
     ""email"": ""extracted email or null"",
-    ""department"": ""extracted department or null"",
-    ""missing_fields"": [""array of required fields that are null""]
+    ""department"": {
+            {
+                ""provided_value"": ""what user wrote or null"",
+        ""matched_department"": ""full department name from list or null"",
+        ""confidence"": 0.0 - 1.0,
+        ""accepted"": true | false
+    }
+        },
+    ""missing_fields"": [""array of required fields that are null or unmatched""]
+    }
 }
 
-If ANY field is null, status must be 'incomplete' and field name added to missing_fields array.
+Final Validation Rules:
+-If confidence < 0.80, set matched_department to null and accepted to false
+- If confidence >= 0.80, use the matched department name and set accepted to true
+- If no department mentioned, set provided_value and matched_department to null
+- Add ""department"" to missing_fields if matched_department is null
+
 Return ONLY the JSON object, no additional text or explanations.";
+
                 }
             }
         }
        
     }
 }
-
-
-//********************************************************************
-//* Future Code
-//********************************************************************
-
-
-//public UserValidationTool(ILogger<UserValidationTool> logger, IUserDirectoryService userDirectory)
-//{
-//    _logger = logger;
-//    _userDirectory = userDirectory;
-//}
-
-//// Interface for user directory service
-//public interface IUserDirectoryService
-//{
-//    Task<UserDetails?> GetUserDetailsAsync(string? email, string? employeeId);
-//    Task<ApprovalChain> GetApprovalChainAsync(string employeeId);
-//}
-
-//public class UserDetails
-//{
-//    public string Email { get; set; } = string.Empty;
-//    public string EmployeeId { get; set; } = string.Empty;
-//    public string FullName { get; set; } = string.Empty;
-//    public string Department { get; set; } = string.Empty;
-//    public string CostCenter { get; set; } = string.Empty;
-//}
-
-//public class ApprovalChain
-//{
-//    public string SupervisorEmail { get; set; } = string.Empty;
-//    public string SupervisorName { get; set; } = string.Empty;
-//    public List<string> ApproverEmails { get; set; } = new();
-//}
-
-// Validate that each field is populated
-
-
-//// Validate against directory service
-//var userDetails = await _userDirectory.GetUserDetailsAsync(email, employeeId);
-//if (userDetails == null)
-//{
-//    return JsonSerializer.Serialize(new
-//    {
-//        status = "error",
-//        error = "user_not_found",
-//        message = "Unable to validate user details. Please provide your email or employee ID.",
-//        required_fields = new[] { "email", "employeeId" }
-//    });
-//}
-
-// Get approval chain
-//var approvalChain = await _userDirectory.GetApprovalChainAsync(userDetails.EmployeeId);

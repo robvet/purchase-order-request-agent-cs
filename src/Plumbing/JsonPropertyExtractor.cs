@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace SingleAgent.Utlls
+namespace SingleAgent.Plubming
 {
     /// <summary>
     /// Provides resilient JSON property extraction methods with smart defaults.

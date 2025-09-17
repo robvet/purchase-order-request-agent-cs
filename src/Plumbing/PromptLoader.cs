@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 
-namespace SingleAgent.Utlls
+namespace SingleAgent.Plubming
 {
     public static class PromptLoader
     {
