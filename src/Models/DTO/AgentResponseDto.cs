@@ -26,3 +26,5 @@ namespace SingleAgent.Models
         public List<string> FormattedOutput { get; set; } = new();
     }
 }
+
+
