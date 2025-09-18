@@ -27,9 +27,8 @@ namespace SingleAgent.Agents // Namespace for agent classes
         private readonly ILogger<PurchaseOrderAgent> _logger; // Logger for this agent
         private readonly IStateStore _stateStore; // Stores per-session/user state
         private readonly JsonSerializerOptions _jsonOptions;
-
-        private readonly ContextPruningService _contextPruningService;
-        private readonly PurchaseStateReconstructor _stateReconstructor;
+        private readonly IConfiguration _configuration;
+        private readonly int _temperature;
 
         private const string TracePrefix = "*** CUSTOM:"; // add prefix to custom trace messages for easy identification 
 
@@ -46,22 +45,24 @@ namespace SingleAgent.Agents // Namespace for agent classes
         public PurchaseOrderAgent(ILogger<PurchaseOrderAgent> logger,
                            Kernel kernel,
                            IStateStore stateStore,
-                           ContextPruningService contextPruningService,
-                           PurchaseStateReconstructor stateReconstructor
+                           IConfiguration configuration
             )
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger), $"Thrown in {GetType().Name}"); // Ensure logger not null
             _kernel = kernel ?? throw new ArgumentNullException(nameof(kernel), $"Thrown in {GetType().Name}"); // Ensure kernel not null
             _stateStore = stateStore ?? throw new ArgumentNullException(nameof(stateStore), $"Thrown in {GetType().Name}"); // Ensure state store not null
+            _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration), $"Thrown in {GetType().Name}"); // Ensure configuration not null
 
-            _contextPruningService = contextPruningService ?? throw new ArgumentNullException(nameof(contextPruningService));
-            _stateReconstructor = stateReconstructor ?? throw new ArgumentNullException(nameof(stateReconstructor));
+            // if temperature not set in config, default to 1
+            _temperature = _configuration.GetValue<int?>("inference-temperature") ?? 1;
 
             _jsonOptions = new JsonSerializerOptions
             {
                 WriteIndented = true,
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             };
+
+
         }
 
         public async Task<(string completion, ChatHistory History)> ProcessUserRequestAsync(
@@ -121,7 +122,7 @@ namespace SingleAgent.Agents // Namespace for agent classes
                 var settings = new OpenAIPromptExecutionSettings
                 {
                     ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions,
-                    Temperature = 0.0
+                    Temperature = _temperature  // must be set to 1 from gpt-5
                 };
 
                 // Get model response using focused context
