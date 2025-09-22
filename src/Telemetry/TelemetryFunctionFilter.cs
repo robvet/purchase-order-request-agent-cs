@@ -50,7 +50,7 @@ namespace SingleAgent.Telemetry
                            ?? new Dictionary<string, object>();
             
             // Record function call with parameters - this is the key debugging info
-            telemetryCollector.RecordFunctionCall(function.Name, parameters);
+              telemetryCollector.RecordFunctionCall(function.Name, parameters);
             
             // Keep simple backward compatible telemetry
             telemetryCollector.Add($"[FUNCTION_CALL] {function.Name}");

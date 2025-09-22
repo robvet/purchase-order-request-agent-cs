@@ -5,23 +5,24 @@ namespace SingleAgent.Models
 {
     public class AgentResponseDto
     {
+
         public string? UserPrompt { get; set; }
-        public string? Reflection { get; set; }
-        public string? NextStep { get; set; }
-        public JsonNode? Products { get; set; }
-        public DebugInfoDto? DebugInfo { get; set; }
+        public string? Completion { get; set; }
+        //public List<ChatMessageDto> Traces { get; set; } = new();
+        //public List<ChatMessageDto> ChatMessageDtos { get; set; } = new();
+        public TraceDetail TraceDetail { get; set; }
     }
 
-    public class DebugInfoDto
-    {
-        public string SessionId { get; set; } = default!;
-        public List<ChatMessageDto> History { get; set; } = new();
-        public List<string> AgentLogs { get; set; } = new();
-        public List<string> Telemetry { get; set; } = new();
-        public List<ToolStepSummary> ToolSteps { get; set; } = new();
-    }
+    //public class ExecutionTraceLog
+    //{
+    //    public string SessionId { get; set; } = default!;
+    //    public List<ChatMessageDto> History { get; set; } = new();
+    //    //public List<string> AgentLogs { get; set; } = new();
+    //    //public List<string> Telemetry { get; set; } = new();
+    //    //public List<ToolStepSummary> ToolSteps { get; set; } = new();
+    //}
 
-    public class FunctionDebugDto
+    public class TraceDetail
     {
         public List<string> FormattedOutput { get; set; } = new();
     }
