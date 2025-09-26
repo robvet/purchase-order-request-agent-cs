@@ -82,8 +82,18 @@ namespace SingleAgent.Controllers
 
                 //var toolSteps = InjectDynamicTelemetryTransformation(_telemetryCollector.GetAll().ToList());
 
-                return Ok(new AgentResponseDto
-                { 
+                //return Ok(new AgentResponseDto
+                //{ 
+                //    UserPrompt = userInputPrompt,
+                //    Completion = completion,
+                //    TraceDetail = traceDetail,
+                //    MessageThreads = messageThreadModel,
+                //    // Traces = ChatHistoryMappingExtensions.MapToDto(history), // Uncomment if you want traces
+                //    // ChatMessageDtos = ChatHistoryMappingExtensions.MapToDto(history) // I
+                //});
+
+                var response = (new AgentResponseDto
+                {
                     UserPrompt = userInputPrompt,
                     Completion = completion,
                     TraceDetail = traceDetail,
@@ -91,6 +101,9 @@ namespace SingleAgent.Controllers
                     // Traces = ChatHistoryMappingExtensions.MapToDto(history), // Uncomment if you want traces
                     // ChatMessageDtos = ChatHistoryMappingExtensions.MapToDto(history) // I
                 });
+
+                return Ok(response);
+
             }
             catch (Exception ex)
             {

@@ -11,7 +11,7 @@ namespace SingleAgent.Models
         //public List<ChatMessageDto> Traces { get; set; } = new    
         //public List<ChatMessageDto> ChatMessageDtos { get; set; } = new();
         public TraceDetail TraceDetail { get; set; }
-        public List<MessageThreadModel> MessageThreads = new();
+        public List<MessageThreadModel> MessageThreads { get; set; } = new();
     }
 
     //public class ExecutionTraceLog
