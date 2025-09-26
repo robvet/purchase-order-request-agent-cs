@@ -5,7 +5,7 @@ namespace SingleAgent.Contracts
 {
     public interface IPurchaseOrderAgent
     {
-        Task<(string completion, ChatHistory History)> ProcessUserRequestAsync(
+        Task<(string completion, ChatHistory History, List<MessageThreadModel> messageThreads)> ProcessUserRequestAsync(
                    string userPrompt,
                    string sessionId,
                    TelemetryCollector telemetryCollector);

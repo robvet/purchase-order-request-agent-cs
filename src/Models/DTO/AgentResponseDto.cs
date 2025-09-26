@@ -8,9 +8,10 @@ namespace SingleAgent.Models
 
         public string? UserPrompt { get; set; }
         public string? Completion { get; set; }
-        //public List<ChatMessageDto> Traces { get; set; } = new();
+        //public List<ChatMessageDto> Traces { get; set; } = new    
         //public List<ChatMessageDto> ChatMessageDtos { get; set; } = new();
         public TraceDetail TraceDetail { get; set; }
+        public List<MessageThreadModel> MessageThreads = new();
     }
 
     //public class ExecutionTraceLog

@@ -1,22 +1,14 @@
-using Azure;
-using Microsoft.AspNetCore.Mvc;
+using common.Enums;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
-using Microsoft.VisualBasic;
-using OpenAI.Assistants;
-using SingleAgent.Context;
 using SingleAgent.Contracts;
 using SingleAgent.Models;
 using SingleAgent.Prompting;
-using SingleAgent.State;
 
 // State store interface
 using SingleAgent.Storage.Contract;
-using System.Diagnostics;
-using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 
 namespace SingleAgent.Agents // Namespace for agent classes
 {
@@ -29,9 +21,9 @@ namespace SingleAgent.Agents // Namespace for agent classes
         private readonly JsonSerializerOptions _jsonOptions;
         private readonly IConfiguration _configuration;
         private readonly int _temperature;
+        private List<MessageThreadModel> messageThreads = new List<MessageThreadModel>();
 
         private const string TracePrefix = "*** CUSTOM:"; // add prefix to custom trace messages for easy identification 
-
 
         /// <architecture = "Workflow">
         /// 1) Agents and Tools should be contain orchestration and validation logic. 
@@ -39,14 +31,13 @@ namespace SingleAgent.Agents // Namespace for agent classes
         /// 3) Single source of truth: ChatHistory
         /// 4) Track state naturally through chat history
         /// </architecture>
-        /// 
 
         // Constructor with dependencies injected
         public PurchaseOrderAgent(ILogger<PurchaseOrderAgent> logger,
                            Kernel kernel,
                            IStateStore stateStore,
                            IConfiguration configuration
-            )
+        )
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger), $"Thrown in {GetType().Name}"); // Ensure logger not null
             _kernel = kernel ?? throw new ArgumentNullException(nameof(kernel), $"Thrown in {GetType().Name}"); // Ensure kernel not null
@@ -61,11 +52,9 @@ namespace SingleAgent.Agents // Namespace for agent classes
                 WriteIndented = true,
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             };
-
-
         }
 
-        public async Task<(string completion, ChatHistory History)> ProcessUserRequestAsync(
+        public async Task<(string completion, ChatHistory History, List<MessageThreadModel> messageThreads)> ProcessUserRequestAsync(
             string userInput,
             string sessionId,
             TelemetryCollector telemetryCollector)
@@ -74,7 +63,7 @@ namespace SingleAgent.Agents // Namespace for agent classes
             {
                 _logger.LogInformation("{TracePrefix} Processing user request: {UserPrompt}", TracePrefix,userInput); // Log the user prompt
 
-
+                                
                 // 1. Full History Store (for audit/tracking)
                 var fullHistory = await _stateStore.GetChatHistoryAsync(sessionId) ?? new ChatHistory();
                                                
@@ -87,9 +76,11 @@ namespace SingleAgent.Agents // Namespace for agent classes
                 // 3. Add current input to full history
                 fullHistory.AddUserMessage(userInput);
 
+                messageThreads.Add(new MessageThreadModel(Role.System, PurchaseOrderPrompts.SystemPrompt(), 0));
+                messageThreads.Add(new MessageThreadModel(Role.User, userInput, 0));
+
                 // 4. Let ContextPruningService build model context
                 //var modelContext = _contextPruningService.BuildModelContext(fullHistory);
-
 
                 //// 4. Build model context (only what's needed)  
                 ////    Encapsulate in OpenAI ChatHistory object
@@ -132,6 +123,36 @@ namespace SingleAgent.Agents // Namespace for agent classes
                     kernel: _kernel
                 );
 
+                // Get token count
+                var innerContent = result.InnerContent as OpenAI.Chat.ChatCompletion;
+                var TotalTokens = (innerContent != null) ? innerContent.Usage.TotalTokenCount : 0;
+
+                ////if (result.Metadata.TryGetValue("Usage", out var usage) && usage is OpenAIUsage u)
+                ////{
+                ////    promptTokens = u.PromptTokens;
+                ////    completionTokens = u.CompletionTokens;
+                ////    totalTokens = u.TotalTokens;
+                ////}
+
+                //var response = result.Content[0];
+
+                //int inputTokens = 0, outputTokens = 0, totalTokens = 0;
+
+                //if (result.Metadata is { } meta &&
+                //    meta.TryGetValue("Usage", out var usageObj) &&
+                //    usageObj is ChatTokenUsage usage)
+                //{
+                //    inputTokens = usage.InputTokenCount;
+                //    outputTokens = usage.OutputTokenCount;
+                //    totalTokens = usage.TotalTokenCount;
+                //}
+                //else
+               
+                messageThreads.Add(new MessageThreadModel(Role.Assistant, result.Content, TotalTokens));
+
+                //_logger.LogInformation("Tokens in={In} out={Out} total={Total}", inputTokens, outputTokens, totalTokens);
+                //_logger.LogInformation("Tokens prompt={P} completion={C} total={T}", prompt, completion, total);
+
                 // Save assistant response and history
                 fullHistory.AddAssistantMessage(result.Content);
 
@@ -140,269 +161,259 @@ namespace SingleAgent.Agents // Namespace for agent classes
 
                 _logger.LogInformation("{TracePrefix} Model final response: {Response}", TracePrefix, result.Content);
 
-                return (result.Content, fullHistory);
-
-
-
-
-                //var chatHistoryFetch = string.Join(
-                //    Environment.NewLine,
-                //    chatHistory.Select(msg => $"{msg.Role}: {msg.Content}")
-                //);
-
-                //// Load existing purchase request state or create new one
-                //var requestState = _stateReconstructor.ReconstructStateFromHistory(chatHistory);
-
-                //// Add system prompt as the first message if history is empty
-                //if (chatHistory.Count == 0)
-                //{
-                //    chatHistory.AddSystemMessage(PurchaseOrderPrompts.SystemPrompt());
-                //}
-
-                ////userInput = PromptTemplate.UserPrompt()
-                ////    .Replace("{{userInput}}", userInput)
-                ////    .Replace("{{workflowState}}", JsonSerializer.Serialize(requestState, _jsonOptions));
-
-                //// Add the user's message to the chat history
-                //chatHistory.AddUserMessage(userInput);
-
-                //// Get the chat completion service from the kernel
-                //var chatService = _kernel.GetRequiredService<IChatCompletionService>();
-
-                //// Set up execution settings to auto-invoke kernel functions
-                //var settings = new OpenAIPromptExecutionSettings
-                //{
-                //    ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions,
-                //    Temperature = 0.0
-                //};
-
-                //// Build a focused context for the model
-                //var activeContext = _contextPruningService.BuildActiveContext(chatHistory, requestState, userInput);
-
-                // Get the AI's response to the active context only
-                //var result = await chatService.GetChatMessageContentAsync(
-                //    activeContext,  // <-- Now sending only the relevant context
-                //    //chatHistory,
-                //    executionSettings: settings,
-                //    kernel: _kernel);
-
-
-                //var chatHistorySave = string.Join(
-                //    Environment.NewLine,
-                //    chatHistory.Select(msg => $"{msg.Role}: {msg.Content}")
-                //);
-
-
-                //string completion = result.Content ?? ""; // Get the completion text
-
-                //// Add the assistant's response to the chat history
-                //chatHistory.AddAssistantMessage(completion);
-
-                // Save the updated chat history for the session
-                //await _stateStore.SaveChatHistoryAsync(sessionId, chatHistory);
-
-                //return (completion, chatHistory);
+                return (result.Content, fullHistory, messageThreads);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "{TracePrefix} Error in {Class}: {ErrorMessage}", TracePrefix, GetType().Name, ex.Message);
-                return ("An unexpected error occurred while processing your request: " + ex.Message, new ChatHistory());
+                throw;
             }
         }
-
-        //// Allows agent to maintain stateful behavior across conversation turns without needing a separate state database.
-        //// Uses chat history as the source of truth, reconstructing current purchase state at the start of each turn, and
-        //// inserts at the beginning of user prompt. Analyzes tool outputs in chat history to rebuild state.
-        //// Tracks workflow progression by setting the status and "lastCompletedTool" in AdditionalData.
-        //private PurchaseRequestState ReconstructStateFromHistory(ChatHistory chatHistory)
-        //{
-        //    var state = new PurchaseRequestState
-        //    {
-        //        AdditionalData = new Dictionary<string, object>()
-        //    };
-
-        //    var toolMessages = chatHistory.Where(m => m.Role == AuthorRole.Tool).ToList();
-
-        //    foreach (var toolMessage in toolMessages)
-        //    {
-        //        if (string.IsNullOrEmpty(toolMessage.Content)) continue;
-
-        //        try
-        //        {
-        //            var toolResult = JsonNode.Parse(toolMessage.Content);
-        //            if (toolResult == null) continue;
-
-        //            // Generic data points
-        //            if (toolResult["intent"] != null)
-        //            {
-        //                state.Intent = toolResult["intent"]?.ToString();
-        //                state.AdditionalData["lastCompletedTool"] = "ClassifyIntentTool";
-        //                state.Status = "classified";
-        //            }
-        //            if (toolResult["is_workplace_computer"]?.GetValue<bool>() == true)
-        //            {
-        //                state.AdditionalData["lastCompletedTool"] = "ValidateProductTool";
-        //                state.Status = "validated";
-        //            }
-        //            if (toolResult["sku"] != null && toolResult["sku"] is JsonArray skuArray)
-        //            {
-        //                state.MatchedSkus = skuArray.Select(s => s?.ToString()).Where(s => !string.IsNullOrEmpty(s)).ToList()!;
-        //                state.AdditionalData["lastCompletedTool"] = "ExtractDetailsTool";
-        //                state.Status = "extracted";
-        //            }
-        //            if (toolResult["quantity"] != null)
-        //            {
-        //                state.Quantity = toolResult["quantity"]?.GetValue<int>();
-        //            }
-        //            if (toolResult["department"] != null)
-        //            {
-        //                state.Department = toolResult["department"]?.ToString();
-        //            }
-        //            if (toolResult["compliant"] != null)
-        //            {
-        //                state.AdditionalData["lastCompletedTool"] = "CheckComplianceTool";
-        //                state.Status = toolResult["compliant"]?.GetValue<bool>() == true ? "compliant" : "awaiting_justification";
-        //            }
-        //            if (toolResult["justification_approved"] != null)
-        //            {
-        //                state.AdditionalData["lastCompletedTool"] = "JustifyApprovalTool";
-        //                state.Status = toolResult["justification_approved"]?.GetValue<bool>() == true ? "justification_approved" : "justification_rejected";
-        //            }
-        //        }
-        //        catch (JsonException ex)
-        //        {
-        //            _logger.LogWarning(ex, "Failed to parse tool result from chat history: {Content}", toolMessage.Content);
-        //        }
-        //    }
-
-        //    _logger.LogInformation("Reconstructed State: Status={Status}, LastTool={LastTool}",
-        //        state.Status,
-        //        state.AdditionalData.TryGetValue("lastCompletedTool", out var tool) ? tool : "none");
-
-        //    return state;
-        //}
+    }
+}
 
 
-        //// 1. Focus on State-Changing Messages: It prioritizes tools that update important state values(intent, validation, SKUs, compliance, justification).
-        //// 2. Response Continuity: For each important tool call, it includes the assistant's response to provide reasoning context.
-        //// 3. Conversation Flow: It maintains the most recent assistant message to preserve the flow of conversation.
-        //// 4. Original Order: Messages are added in their original chronological order to maintain conversation coherence.
-        //// 5. Performance Logging: It logs how much context was pruned for monitoring efficiency.
-        //private ChatHistory BuildActiveContext(ChatHistory fullHistory, PurchaseRequestState currentState, string userInput)
-        //{
-        //    // Create a new, focused context
-        //    var activeContext = new ChatHistory();
 
-        //    // Always start with system prompt
-        //    activeContext.AddSystemMessage(PromptTemplate.SystemPrompt());
+//static int GetInt(IReadOnlyDictionary<string, object?> m, params string[] keys)
+//{
+//    foreach (var k in keys)
+//        if (m.TryGetValue(k, out var v) && int.TryParse(v?.ToString(), out var val)) return val;
+//    return 0;
+//}
 
-        //    // Add only the most important previous messages from history based on state
-        //    AddRelevantHistoryToContext(activeContext, fullHistory, currentState);
 
-        //    // Always add the current user message with state
-        //    string formattedUserInput = PromptTemplate.UserPrompt()
-        //        .Replace("{{userInput}}", userInput)
-        //        .Replace("{{workflowState}}", JsonSerializer.Serialize(currentState, _jsonOptions));
+//static int TryInt(IReadOnlyDictionary<string, object?> m, params string[] keys)
+//{
 
-        //    activeContext.AddUserMessage(formattedUserInput);
+//    foreach (var k in keys)
+//        if (m.TryGetValue(k, out var v) && int.TryParse(v?.ToString(), out var val))
+//            return val;
+//    return 0;
+//}
 
-        //    return activeContext;
-        //}
 
-        //private void AddRelevantHistoryToContext(ChatHistory activeContext, ChatHistory fullHistory, PurchaseRequestState currentState)
-        //{
-        //    // If history is empty or very short, no pruning needed
-        //    if (fullHistory.Count <= 3) return;
+//private static (int prompt, int completion, int total) ExtractUsage(ChatMessageContent msg)
+//{
+//    if (msg?.Metadata == null) return (0, 0, 0);
 
-        //    // Get the last completed tool for workflow context
-        //    string lastCompletedTool = currentState.AdditionalData.TryGetValue("lastCompletedTool", out var tool)
-        //        ? tool.ToString() ?? string.Empty
-        //        : string.Empty;
+//    // Direct OpenAIUsage object
+//    if (msg.Metadata.TryGetValue("Usage", out var usageObj) && usageObj is OpenAIUsage u)
+//    {
+//        return (u.PromptTokens, u.CompletionTokens, u.TotalTokens);
+//    }
 
-        //    // Keep track of key messages to include
-        //    var messagesToInclude = new List<(int Index, ChatMessageContent Message)>();
+//    // Fallback flattened keys
+//    int prompt = TryInt(msg.Metadata, "prompt_tokens", "PromptTokens");
+//    int completion = TryInt(msg.Metadata, "completion_tokens", "CompletionTokens");
+//    int total = TryInt(msg.Metadata, "total_tokens", "TotalTokens");
+//    if (total == 0) total = prompt + completion;
+//    return (prompt, completion, total);
 
-        //    // First, identify key tool responses that represent state transitions
-        //    for (int i = 0; i < fullHistory.Count; i++)
-        //    {
-        //        var message = fullHistory[i];
+//    static int TryInt(IReadOnlyDictionary<string, object?> meta, params string[] keys)
+//    {
+//        foreach (var k in keys)
+//        {
+//            if (meta.TryGetValue(k, out var v) && int.TryParse(v?.ToString(), out var val))
+//                return val;
+//        }
+//        return 0;
+//    }
+//}
 
-        //        // Always include tool responses (they contain critical state information)
-        //        if (message.Role == AuthorRole.Tool)
-        //        {
-        //            // Parse to check if it's a relevant tool (one that set important state)
-        //            if (!string.IsNullOrEmpty(message.Content))
-        //            {
-        //                try
-        //                {
-        //                    var toolResult = JsonNode.Parse(message.Content);
 
-        //                    // Include if it's part of the critical workflow path
-        //                    bool isRelevant =
-        //                        (toolResult?["intent"] != null) || // ClassifyIntentTool
-        //                        (toolResult?["isWorkplaceComputer"] != null) || // ValidateProductTool
-        //                        (toolResult?["sku"] != null) || // ExtractDetailsTool
-        //                        (toolResult?["compliant"] != null) || // CheckComplianceTool
-        //                        (toolResult?["justification_approved"] != null); // JustifyApprovalTool
+//// Allows agent to maintain stateful behavior across conversation turns without needing a separate state database.
+//// Uses chat history as the source of truth, reconstructing current purchase state at the start of each turn, and
+//// inserts at the beginning of user prompt. Analyzes tool outputs in chat history to rebuild state.
+//// Tracks workflow progression by setting the status and "lastCompletedTool" in AdditionalData.
+//private PurchaseRequestState ReconstructStateFromHistory(ChatHistory chatHistory)
+//{
+//    var state = new PurchaseRequestState
+//    {
+//        AdditionalData = new Dictionary<string, object>()
+//    };
 
-        //                    if (isRelevant)
-        //                    {
-        //                        // Add this tool response and also the next assistant message (if exists)
-        //                        messagesToInclude.Add((i, message));
+//    var toolMessages = chatHistory.Where(m => m.Role == AuthorRole.Tool).ToList();
 
-        //                        // Include the response to this tool call (the next assistant message)
-        //                        if (i + 1 < fullHistory.Count && fullHistory[i + 1].Role == AuthorRole.Assistant)
-        //                        {
-        //                            messagesToInclude.Add((i + 1, fullHistory[i + 1]));
-        //                        }
-        //                    }
-        //                }
-        //                catch
-        //                {
-        //                    // If we can't parse it, just ignore this message
-        //                }
-        //            }
-        //        }
-        //    }
+//    foreach (var toolMessage in toolMessages)
+//    {
+//        if (string.IsNullOrEmpty(toolMessage.Content)) continue;
 
-        //    // Always include the most recent assistant message for continuity
-        //    for (int i = fullHistory.Count - 1; i >= 0; i--)
-        //    {
-        //        if (fullHistory[i].Role == AuthorRole.Assistant)
-        //        {
-        //            // Check if we already included this message
-        //            if (!messagesToInclude.Any(m => m.Index == i))
-        //            {
-        //                messagesToInclude.Add((i, fullHistory[i]));
-        //            }
-        //            break;
-        //        }
-        //    }
+//        try
+//        {
+//            var toolResult = JsonNode.Parse(toolMessage.Content);
+//            if (toolResult == null) continue;
 
-        //    // Add relevant messages to active context in original order
-        //    foreach (var (_, message) in messagesToInclude.OrderBy(m => m.Index))
-        //    {
-        //        activeContext.AddMessage(message.Role, message.Content);
-        //    }
+//            // Generic data points
+//            if (toolResult["intent"] != null)
+//            {
+//                state.Intent = toolResult["intent"]?.ToString();
+//                state.AdditionalData["lastCompletedTool"] = "ClassifyIntentTool";
+//                state.Status = "classified";
+//            }
+//            if (toolResult["is_workplace_computer"]?.GetValue<bool>() == true)
+//            {
+//                state.AdditionalData["lastCompletedTool"] = "ValidateProductTool";
+//                state.Status = "validated";
+//            }
+//            if (toolResult["sku"] != null && toolResult["sku"] is JsonArray skuArray)
+//            {
+//                state.MatchedSkus = skuArray.Select(s => s?.ToString()).Where(s => !string.IsNullOrEmpty(s)).ToList()!;
+//                state.AdditionalData["lastCompletedTool"] = "ExtractDetailsTool";
+//                state.Status = "extracted";
+//            }
+//            if (toolResult["quantity"] != null)
+//            {
+//                state.Quantity = toolResult["quantity"]?.GetValue<int>();
+//            }
+//            if (toolResult["department"] != null)
+//            {
+//                state.Department = toolResult["department"]?.ToString();
+//            }
+//            if (toolResult["compliant"] != null)
+//            {
+//                state.AdditionalData["lastCompletedTool"] = "CheckComplianceTool";
+//                state.Status = toolResult["compliant"]?.GetValue<bool>() == true ? "compliant" : "awaiting_justification";
+//            }
+//            if (toolResult["justification_approved"] != null)
+//            {
+//                state.AdditionalData["lastCompletedTool"] = "JustifyApprovalTool";
+//                state.Status = toolResult["justification_approved"]?.GetValue<bool>() == true ? "justification_approved" : "justification_rejected";
+//            }
+//        }
+//        catch (JsonException ex)
+//        {
+//            _logger.LogWarning(ex, "Failed to parse tool result from chat history: {Content}", toolMessage.Content);
+//        }
+//    }
 
-        //    // Log how much we pruned
-        //    _logger.LogInformation(
-        //        "Context pruning: reduced from {OriginalCount} to {PrunedCount} messages",
-        //        fullHistory.Count,
-        //        activeContext.Count);
-        //}
-           
+//    _logger.LogInformation("Reconstructed State: Status={Status}, LastTool={LastTool}",
+//        state.Status,
+//        state.AdditionalData.TryGetValue("lastCompletedTool", out var tool) ? tool : "none");
 
-        /// <architecture = "System Prompt Highlights" >
-        ///   •	Dedicated ## Workflow Rules Section: This is the most important change. 
-        ///     It gathers all the specific, non-negotiable instructions into one place. 
-        ///     Makes prompt clearer and more structured
-        ///     Significantly increases likelihood the model will follow the rules correctly
-        ///   •	Consolidated Persona and Goal: Single, concise paragraph that clearly defines the agent's role
-        ///   •	Clear Tool List: Fixes tool numbering and descriptions are slightly crisper and more action-oriented.
-        ///   •	Structured Core Principles: Contains general "advice" or "best practices" for the agent, 
-        ///     separating them from the hard rules. This distinction is important for the model's reasoning
-        /// </architecture>
+//    return state;
+//}
+
+
+//// 1. Focus on State-Changing Messages: It prioritizes tools that update important state values(intent, validation, SKUs, compliance, justification).
+//// 2. Response Continuity: For each important tool call, it includes the assistant's response to provide reasoning context.
+//// 3. Conversation Flow: It maintains the most recent assistant message to preserve the flow of conversation.
+//// 4. Original Order: Messages are added in their original chronological order to maintain conversation coherence.
+//// 5. Performance Logging: It logs how much context was pruned for monitoring efficiency.
+//private ChatHistory BuildActiveContext(ChatHistory fullHistory, PurchaseRequestState currentState, string userInput)
+//{
+//    // Create a new, focused context
+//    var activeContext = new ChatHistory();
+
+//    // Always start with system prompt
+//    activeContext.AddSystemMessage(PromptTemplate.SystemPrompt());
+
+//    // Add only the most important previous messages from history based on state
+//    AddRelevantHistoryToContext(activeContext, fullHistory, currentState);
+
+//    // Always add the current user message with state
+//    string formattedUserInput = PromptTemplate.UserPrompt()
+//        .Replace("{{userInput}}", userInput)
+//        .Replace("{{workflowState}}", JsonSerializer.Serialize(currentState, _jsonOptions));
+
+//    activeContext.AddUserMessage(formattedUserInput);
+
+//    return activeContext;
+//}
+
+//private void AddRelevantHistoryToContext(ChatHistory activeContext, ChatHistory fullHistory, PurchaseRequestState currentState)
+//{
+//    // If history is empty or very short, no pruning needed
+//    if (fullHistory.Count <= 3) return;
+
+//    // Get the last completed tool for workflow context
+//    string lastCompletedTool = currentState.AdditionalData.TryGetValue("lastCompletedTool", out var tool)
+//        ? tool.ToString() ?? string.Empty
+//        : string.Empty;
+
+//    // Keep track of key messages to include
+//    var messagesToInclude = new List<(int Index, ChatMessageContent Message)>();
+
+//    // First, identify key tool responses that represent state transitions
+//    for (int i = 0; i < fullHistory.Count; i++)
+//    {
+//        var message = fullHistory[i];
+
+//        // Always include tool responses (they contain critical state information)
+//        if (message.Role == AuthorRole.Tool)
+//        {
+//            // Parse to check if it's a relevant tool (one that set important state)
+//            if (!string.IsNullOrEmpty(message.Content))
+//            {
+//                try
+//                {
+//                    var toolResult = JsonNode.Parse(message.Content);
+
+//                    // Include if it's part of the critical workflow path
+//                    bool isRelevant =
+//                        (toolResult?["intent"] != null) || // ClassifyIntentTool
+//                        (toolResult?["isWorkplaceComputer"] != null) || // ValidateProductTool
+//                        (toolResult?["sku"] != null) || // ExtractDetailsTool
+//                        (toolResult?["compliant"] != null) || // CheckComplianceTool
+//                        (toolResult?["justification_approved"] != null); // JustifyApprovalTool
+
+//                    if (isRelevant)
+//                    {
+//                        // Add this tool response and also the next assistant message (if exists)
+//                        messagesToInclude.Add((i, message));
+
+//                        // Include the response to this tool call (the next assistant message)
+//                        if (i + 1 < fullHistory.Count && fullHistory[i + 1].Role == AuthorRole.Assistant)
+//                        {
+//                            messagesToInclude.Add((i + 1, fullHistory[i + 1]));
+//                        }
+//                    }
+//                }
+//                catch
+//                {
+//                    // If we can't parse it, just ignore this message
+//                }
+//            }
+//        }
+//    }
+
+//    // Always include the most recent assistant message for continuity
+//    for (int i = fullHistory.Count - 1; i >= 0; i--)
+//    {
+//        if (fullHistory[i].Role == AuthorRole.Assistant)
+//        {
+//            // Check if we already included this message
+//            if (!messagesToInclude.Any(m => m.Index == i))
+//            {
+//                messagesToInclude.Add((i, fullHistory[i]));
+//            }
+//            break;
+//        }
+//    }
+
+//    // Add relevant messages to active context in original order
+//    foreach (var (_, message) in messagesToInclude.OrderBy(m => m.Index))
+//    {
+//        activeContext.AddMessage(message.Role, message.Content);
+//    }
+
+//    // Log how much we pruned
+//    _logger.LogInformation(
+//        "Context pruning: reduced from {OriginalCount} to {PrunedCount} messages",
+//        fullHistory.Count,
+//        activeContext.Count);
+//}
+
+
+/// <architecture = "System Prompt Highlights" >
+///   •	Dedicated ## Workflow Rules Section: This is the most important change. 
+///     It gathers all the specific, non-negotiable instructions into one place. 
+///     Makes prompt clearer and more structured
+///     Significantly increases likelihood the model will follow the rules correctly
+///   •	Consolidated Persona and Goal: Single, concise paragraph that clearly defines the agent's role
+///   •	Clear Tool List: Fixes tool numbering and descriptions are slightly crisper and more action-oriented.
+///   •	Structured Core Principles: Contains general "advice" or "best practices" for the agent, 
+///     separating them from the hard rules. This distinction is important for the model's reasoning
+/// </architecture>
 //        private static class PromptTemplate
 //        {
 //            public static string SystemPrompt()
@@ -427,7 +438,7 @@ namespace SingleAgent.Agents // Namespace for agent classes
 //  •	Do Not Guess: If information is missing or a step fails, use your tools to get the information or stop and ask for human approval.
 //  •	Expect Structured JSON: All tools will return their results in a structured JSON format. Your next action 
 //    must be based on the key-value data contained within this JSON output.
-  
+
 //Workflow Rules:
 
 //  •	Confidence Score Check: If the ClassifyIntentTool returns a confidence score below 0.8, you must stop all other actions. Immediately ask the user for clarification about their request.
@@ -474,24 +485,86 @@ namespace SingleAgent.Agents // Namespace for agent classes
 
 //        }
 
-        // Captures the chat history in a formatted string for debugging or logging
-        private static string FormatChatHistory(ChatHistory chatHistory, JsonSerializerOptions _jsonOptions)
-        {
-            return string.Join(
-                Environment.NewLine + new string('-', 40) + Environment.NewLine,
-                chatHistory.Select(msg =>
-                    JsonSerializer.Serialize(new
-                    {
-                        Role = msg.Role.ToString(),
-                        Content = msg.Content
-                    }, _jsonOptions)
-                )
-            );
-        }
+// Capture
+//
+//
+// s the chat history in a formatted string for debugging or logging
 
-    }
 
-}
+
+//var chatHistoryFetch = string.Join(
+//    Environment.NewLine,
+//    chatHistory.Select(msg => $"{msg.Role}: {msg.Content}")
+//);
+
+//// Load existing purchase request state or create new one
+//var requestState = _stateReconstructor.ReconstructStateFromHistory(chatHistory);
+
+//// Add system prompt as the first message if history is empty
+//if (chatHistory.Count == 0)
+//{
+//    chatHistory.AddSystemMessage(PurchaseOrderPrompts.SystemPrompt());
+//}
+
+////userInput = PromptTemplate.UserPrompt()
+////    .Replace("{{userInput}}", userInput)
+////    .Replace("{{workflowState}}", JsonSerializer.Serialize(requestState, _jsonOptions));
+
+//// Add the user's message to the chat history
+//chatHistory.AddUserMessage(userInput);
+
+//// Get the chat completion service from the kernel
+//var chatService = _kernel.GetRequiredService<IChatCompletionService>();
+
+//// Set up execution settings to auto-invoke kernel functions
+//var settings = new OpenAIPromptExecutionSettings
+//{
+//    ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions,
+//    Temperature = 0.0
+//};
+
+//// Build a focused context for the model
+//var activeContext = _contextPruningService.BuildActiveContext(chatHistory, requestState, userInput);
+
+// Get the AI's response to the active context only
+//var result = await chatService.GetChatMessageContentAsync(
+//    activeContext,  // <-- Now sending only the relevant context
+//    //chatHistory,
+//    executionSettings: settings,
+//    kernel: _kernel);
+
+
+//var chatHistorySave = string.Join(
+//    Environment.NewLine,
+//    chatHistory.Select(msg => $"{msg.Role}: {msg.Content}")
+//);
+
+
+//string completion = result.Content ?? ""; // Get the completion text
+
+//// Add the assistant's response to the chat history
+//chatHistory.AddAssistantMessage(completion);
+
+// Save the updated chat history for the session
+//await _stateStore.SaveChatHistoryAsync(sessionId, chatHistory);
+
+//return (completion, chatHistory);
+
+
+//private static string FormatChatHistory(ChatHistory chatHistory, JsonSerializerOptions _jsonOptions)
+//{
+//    return string.Join(
+//        Environment.NewLine + new string('-', 40) + Environment.NewLine,
+//        chatHistory.Select(msg =>
+//            JsonSerializer.Serialize(new
+//            {
+//                Role = msg.Role.ToString(),
+//                Content = msg.Content
+//            }, _jsonOptions)
+//        )
+//    );
+//}
+
 
 
 

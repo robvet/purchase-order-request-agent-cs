@@ -48,6 +48,13 @@ namespace SingleAgent.Controllers
         {
             try
             {
+                // Extra Credit
+                var userAgent = Request.Headers["User-Agent"].ToString();
+                var correlationId = _httpContextAccessor.HttpContext.TraceIdentifier;
+
+
+
+
                 _logger.LogInformation("{TracePrefix} Logging user prompt for PO Request: {UserPrompt}", TracePrefix, userInputPrompt);
 
                 // validate input
@@ -64,7 +71,7 @@ namespace SingleAgent.Controllers
 
                 //_telemetryClient.Context.Session.Id = sessionId;
 
-                var (completion, history) = await _purchaseOrderAgent.ProcessUserRequestAsync(userInputPrompt, sessionId, _telemetryCollector);
+                var (completion, history, messageThreadModel) = await _purchaseOrderAgent.ProcessUserRequestAsync(userInputPrompt, sessionId, _telemetryCollector);
 
                 var traceDetail = new TraceDetail
                 {
@@ -80,12 +87,10 @@ namespace SingleAgent.Controllers
                     UserPrompt = userInputPrompt,
                     Completion = completion,
                     TraceDetail = traceDetail,
+                    MessageThreads = messageThreadModel,
                     // Traces = ChatHistoryMappingExtensions.MapToDto(history), // Uncomment if you want traces
                     // ChatMessageDtos = ChatHistoryMappingExtensions.MapToDto(history) // I
                 });
-               
-              
-
             }
             catch (Exception ex)
             {
@@ -99,7 +104,6 @@ namespace SingleAgent.Controllers
         {
             return "OK";
         }
-
 
 
         /// <summary>
