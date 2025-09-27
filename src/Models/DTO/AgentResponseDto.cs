@@ -1,8 +1,6 @@
-﻿using SingleAgent.Models.DTO;
-using SingleAgent.Models.Enums;
-using System.Text.Json.Nodes;
+﻿using SingleAgent.Models.Enums;
 
-namespace SingleAgent.Models
+namespace SingleAgent.Models.DTO
 {
     public class AgentResponseDto
     {
@@ -15,12 +13,9 @@ namespace SingleAgent.Models
             InputTokens = inputTokens;
             OutputTokens = outputTokens;
             ReasoningTokens = reasoningTokens;
-            ResponseInformationDto = new ResponseInformationDto(0, 0, 0);
             ToolStepSummary = toolStepSummary;
-
             //StepName = stepName;
             TraceDetail = traceDetail;
-            //ToolStepSummary = new List<ToolStepSummary>();
         }
 
         public int ExecutionTime { get; }
@@ -29,7 +24,6 @@ namespace SingleAgent.Models
         public int InputTokens { get; }
         public int OutputTokens { get; }
         public int ReasoningTokens { get; }
-        public ResponseInformationDto ResponseInformationDto { get; }
         //public string StepName { get; }
         public List<ToolStepSummaryModel> ToolStepSummary { get; set; } = new();
         public TraceDetail TraceDetail { get; } = new();
@@ -40,7 +34,6 @@ namespace SingleAgent.Models
         public List<string> FormattedOutput { get; set; } = new();
     }
 
-
     //public class ExecutionTraceLog
     //{
     //    public string SessionId { get; set; } = default!;
@@ -49,8 +42,6 @@ namespace SingleAgent.Models
     //    //public List<string> Telemetry { get; set; } = new();
     //    //public List<ToolStepSummary> ToolSteps { get; set; } = new();
     //}
-
-
 }
 
 
