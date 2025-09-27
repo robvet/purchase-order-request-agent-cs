@@ -3,9 +3,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Abstractions;
 using SingleAgent.Contracts;
 using SingleAgent.Models;
+using System.Diagnostics;
 using SingleAgent.Models.DTO;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using SingleAgent.Models.Enums;
 
 namespace SingleAgent.Controllers
 {
@@ -30,6 +32,8 @@ namespace SingleAgent.Controllers
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger), $"Thrown in {GetType().Name}");
 
+            
+
             _purchaseOrderAgent = purchaseOrderAgent ?? throw new ArgumentNullException(nameof(purchaseOrderAgent), $"Thrown in {GetType().Name}");
             _telemetryCollector = telemetryCollector ?? throw new ArgumentNullException(nameof(telemetryCollector), $"Thrown in {GetType().Name}");
             _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor), $"Thrown in {GetType().Name}");
@@ -48,6 +52,10 @@ namespace SingleAgent.Controllers
         {
             try
             {
+                // Start stopwatch
+                var sw = Stopwatch.StartNew();
+
+
                 // Extra Credit
                 var userAgent = Request.Headers["User-Agent"].ToString();
                 var correlationId = _httpContextAccessor.HttpContext.TraceIdentifier;
@@ -71,7 +79,7 @@ namespace SingleAgent.Controllers
 
                 //_telemetryClient.Context.Session.Id = sessionId;
 
-                var (completion, history, messageThreadModel) = await _purchaseOrderAgent.ProcessUserRequestAsync(userInputPrompt, sessionId, _telemetryCollector);
+                var (completion, responseInformationDto) = await _purchaseOrderAgent.ProcessUserRequestAsync(userInputPrompt, sessionId, _telemetryCollector);
 
                 var traceDetail = new TraceDetail
                 {
@@ -92,18 +100,18 @@ namespace SingleAgent.Controllers
                 //    // ChatMessageDtos = ChatHistoryMappingExtensions.MapToDto(history) // I
                 //});
 
-                var response = (new AgentResponseDto
-                {
-                    UserPrompt = userInputPrompt,
-                    Completion = completion,
-                    TraceDetail = traceDetail,
-                    MessageThreads = messageThreadModel,
-                    // Traces = ChatHistoryMappingExtensions.MapToDto(history), // Uncomment if you want traces
-                    // ChatMessageDtos = ChatHistoryMappingExtensions.MapToDto(history) // I
-                });
+                sw.Stop();
+                var elapsedSeconds = (int)sw.Elapsed.TotalSeconds;
 
-                return Ok(response);
-
+                return Ok(new AgentResponseDto
+                (
+                    elapsedSeconds,
+                    Role.Assistant,
+                    completion,
+                    responseInformationDto,
+                    new List<ToolStepSummaryModel>(), // toolSteps,
+                    traceDetail
+                ));
             }
             catch (Exception ex)
             {
@@ -127,13 +135,13 @@ namespace SingleAgent.Controllers
         /// while the controller handles custom business logic. Moreover, the pattern enables future custom 
         /// formatting without requiring changes to the underlying filtering logic.
         /// </summary>
-        private List<ToolStepSummary> InjectDynamicTelemetryTransformation(List<string> telemetryEntries)
+        private List<ToolStepSummaryModel> InjectDynamicTelemetryTransformation(List<string> telemetryEntries)
         {
-            var toolSteps = new List<ToolStepSummary>();
+            var toolSteps = new List<ToolStepSummaryModel>();
 
             try
             {
-                var currentStep = new ToolStepSummary();
+                var currentStep = new ToolStepSummaryModel();
                 var hasActiveStep = false;
                 var parentToolName = string.Empty; // Track parent tool name for nested calls
 
@@ -201,7 +209,7 @@ namespace SingleAgent.Controllers
                             }
 
                             // Start a new step
-                            currentStep = new ToolStepSummary();
+                            currentStep = new ToolStepSummaryModel();
                             currentStep.ToolName = toolName;
                             parentToolName = toolName; // Remember this for potential nested calls
                             hasActiveStep = true;

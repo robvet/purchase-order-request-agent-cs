@@ -3,7 +3,7 @@ namespace SingleAgent.Models
     /// <summary>
     /// Represents a single tool execution step with its result and agent response
     /// </summary>
-    public class ToolStepSummary
+    public class ToolStepSummaryModel
     {
         /// <summary>
         /// The name of the tool that was called (e.g., "ClassifyRequest", "CheckBudget")

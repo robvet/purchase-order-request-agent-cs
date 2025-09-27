@@ -4,6 +4,7 @@ using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using SingleAgent.Contracts;
 using SingleAgent.Models;
+using SingleAgent.Models.DTO;
 using SingleAgent.Prompting;
 
 // State store interface
@@ -54,7 +55,7 @@ namespace SingleAgent.Agents // Namespace for agent classes
             };
         }
 
-        public async Task<(string completion, ChatHistory History, List<MessageThreadModel> messageThreads)> ProcessUserRequestAsync(
+        public async Task<(string completion, ResponseInformationDto responseInformationDto)> ProcessUserRequestAsync(
             string userInput,
             string sessionId,
             TelemetryCollector telemetryCollector)
@@ -125,7 +126,11 @@ namespace SingleAgent.Agents // Namespace for agent classes
 
                 // Get token count
                 var innerContent = result.InnerContent as OpenAI.Chat.ChatCompletion;
-                var TotalTokens = (innerContent != null) ? innerContent.Usage.TotalTokenCount : 0;
+                var inputTokens = (innerContent != null) ? innerContent.Usage.InputTokenCount : 0;
+                var outputTokens = (innerContent != null) ? innerContent.Usage.OutputTokenCount : 0;
+                var reasoningTokens = (innerContent != null) ? innerContent.Usage.OutputTokenDetails.ReasoningTokenCount : 0;
+
+                var responseInformationDto = new ResponseInformationDto(inputTokens, outputTokens, reasoningTokens);
 
                 ////if (result.Metadata.TryGetValue("Usage", out var usage) && usage is OpenAIUsage u)
                 ////{
@@ -147,8 +152,8 @@ namespace SingleAgent.Agents // Namespace for agent classes
                 //    totalTokens = usage.TotalTokenCount;
                 //}
                 //else
-               
-                messageThreads.Add(new MessageThreadModel(Role.Assistant, result.Content, TotalTokens));
+
+                //messageThreads.Add(new MessageThreadModel(Role.Assistant, result.Content, TotalTokens));
 
                 //_logger.LogInformation("Tokens in={In} out={Out} total={Total}", inputTokens, outputTokens, totalTokens);
                 //_logger.LogInformation("Tokens prompt={P} completion={C} total={T}", prompt, completion, total);
@@ -161,7 +166,7 @@ namespace SingleAgent.Agents // Namespace for agent classes
 
                 _logger.LogInformation("{TracePrefix} Model final response: {Response}", TracePrefix, result.Content);
 
-                return (result.Content, fullHistory, messageThreads);
+                return (result.Content, responseInformationDto);
             }
             catch (Exception ex)
             {
