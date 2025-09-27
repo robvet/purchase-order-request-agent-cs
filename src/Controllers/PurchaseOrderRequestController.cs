@@ -108,7 +108,9 @@ namespace SingleAgent.Controllers
                     elapsedSeconds,
                     Role.Assistant,
                     completion,
-                    responseInformationDto,
+                    responseInformationDto.InputTokens,
+                    responseInformationDto.OutputTokens,
+                    responseInformationDto.ReasoningTokens,
                     new List<ToolStepSummaryModel>(), // toolSteps,
                     traceDetail
                 ));

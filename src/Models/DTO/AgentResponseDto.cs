@@ -6,11 +6,15 @@ namespace SingleAgent.Models
 {
     public class AgentResponseDto
     {
-        public AgentResponseDto(int executionTime, Role role, string content, ResponseInformationDto responseInformationDto, List<ToolStepSummaryModel> toolStepSummary, TraceDetail traceDetail)
+        public AgentResponseDto(int executionTime, Role role, string content, int inputTokens, int outputTokens, 
+                                int reasoningTokens, List<ToolStepSummaryModel> toolStepSummary, TraceDetail traceDetail)
         {
             ExecutionTime = executionTime;
             Role = role;
             Content = content;
+            InputTokens = inputTokens;
+            OutputTokens = outputTokens;
+            ReasoningTokens = reasoningTokens;
             ResponseInformationDto = new ResponseInformationDto(0, 0, 0);
             ToolStepSummary = toolStepSummary;
 
@@ -22,6 +26,9 @@ namespace SingleAgent.Models
         public int ExecutionTime { get; }
         public Role Role { get; }
         public string Content { get; }
+        public int InputTokens { get; }
+        public int OutputTokens { get; }
+        public int ReasoningTokens { get; }
         public ResponseInformationDto ResponseInformationDto { get; }
         //public string StepName { get; }
         public List<ToolStepSummaryModel> ToolStepSummary { get; set; } = new();
