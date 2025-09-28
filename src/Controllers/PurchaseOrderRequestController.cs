@@ -35,8 +35,6 @@ namespace SingleAgent.Controllers
                 var userAgent = Request.Headers["User-Agent"].ToString();
                 var correlationId = _httpContextAccessor.HttpContext.TraceIdentifier;
 
-                
-                
                 // validate input
                 if (string.IsNullOrWhiteSpace(userInputPrompt))
                 {
@@ -45,7 +43,7 @@ namespace SingleAgent.Controllers
                 }
 
                 userInputPrompt = userInputPrompt.Trim();
-                _logger.LogInformation("{TracePrefix} Logging user prompt for PO Request in Controller: {UserPrompt}", TracePrefix, userInputPrompt);
+                _logger.LogInformation("{TracePrefix} PO Request Controller receives PO request: {UserPrompt}", TracePrefix, userInputPrompt);
 
                 // create unique sessionId for tracking history across turns
                 string sessionId = Request.Cookies["SessionId"] ?? Guid.NewGuid().ToString();

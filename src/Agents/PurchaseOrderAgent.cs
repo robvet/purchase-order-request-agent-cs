@@ -79,7 +79,7 @@ namespace SingleAgent.Agents
         {
             try
             {
-                _logger.LogInformation("{TracePrefix} Logging user prompt for PO Request in Controller at top of agent: {UserPrompt}", TracePrefix,userInput); // Log the user prompt
+                _logger.LogInformation("{TracePrefix} PO Agent receives request: {UserPrompt}", TracePrefix,userInput); // Log the user prompt
 
                 // measure execution time
                 _stopwatch = Stopwatch.StartNew();
@@ -123,19 +123,28 @@ namespace SingleAgent.Agents
                 //modelContext.AddUserMessage(userInput);
 
                 // Get chat completion service from kernel and configure auto-invoke kernel functions
-                var chatService = _kernel.GetRequiredService<IChatCompletionService>();
+                var skChatServiceAPI = _kernel.GetRequiredService<IChatCompletionService>();
                 var settings = new OpenAIPromptExecutionSettings
                 {
                     ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions,
                     Temperature = _temperature  // must be set to 1 from gpt-5
                 };
 
+                _logger.LogInformation("{TracePrefix} PO Agent Controller is invoking SK AgentService (kernel)", TracePrefix);
+
+                var swSKCall = Stopwatch.StartNew();
+
                 // Get model response using focused context
-                var result = await chatService.GetChatMessageContentAsync(
+                var result = await skChatServiceAPI.GetChatMessageContentAsync(
                     fullHistory,  // Only what model needs
                     executionSettings: settings,
                     kernel: _kernel
                 );
+
+                swSKCall.Stop();
+                var skCallDuration  = (int)_stopwatch.Elapsed.TotalSeconds;
+
+                _logger.LogInformation("{TracePrefix} SK AgentService (kernel) call completes in {skCallDuration} ms", TracePrefix, skCallDuration);
 
                 // Get token count
                 var innerContent = result.InnerContent as OpenAI.Chat.ChatCompletion;
@@ -148,8 +157,6 @@ namespace SingleAgent.Agents
 
                 // Update fullchat history for the session
                 await _stateStore.SaveChatHistoryAsync(sessionId, fullHistory);
-
-                _logger.LogInformation("{TracePrefix} Model final response: {Response}", TracePrefix, result.Content);
 
                 // Trace details for debugging
                 var traceDetail = new TraceDetail
@@ -173,6 +180,7 @@ namespace SingleAgent.Agents
                     traceDetail
                 );
 
+                _logger.LogInformation("{TracePrefix} PO Agent calls completes in {ElapsedMilliseconds} seconds with response {Response}", TracePrefix, swSKCall.ElapsedMilliseconds, result.Content);
 
                 return (agentResponseDto);
             }
@@ -527,7 +535,7 @@ namespace SingleAgent.Agents
 //chatHistory.AddUserMessage(userInput);
 
 //// Get the chat completion service from the kernel
-//var chatService = _kernel.GetRequiredService<IChatCompletionService>();
+//var skChatServiceAPI = _kernel.GetRequiredService<IChatCompletionService>();
 
 //// Set up execution settings to auto-invoke kernel functions
 //var settings = new OpenAIPromptExecutionSettings
@@ -540,7 +548,7 @@ namespace SingleAgent.Agents
 //var activeContext = _contextPruningService.BuildActiveContext(chatHistory, requestState, userInput);
 
 // Get the AI's response to the active context only
-//var result = await chatService.GetChatMessageContentAsync(
+//var result = await skChatServiceAPI.GetChatMessageContentAsync(
 //    activeContext,  // <-- Now sending only the relevant context
 //    //chatHistory,
 //    executionSettings: settings,
