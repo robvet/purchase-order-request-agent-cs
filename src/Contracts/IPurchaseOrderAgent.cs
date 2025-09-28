@@ -6,9 +6,8 @@ namespace SingleAgent.Contracts
 {
     public interface IPurchaseOrderAgent
     {
-        Task<(string completion, ResponseInformationDto responseInformationDto)> ProcessUserRequestAsync(
+        Task<AgentResponseDto> ProcessUserRequestAsync(
                    string userPrompt,
-                   string sessionId,
-                   TelemetryCollector telemetryCollector);
+                   string sessionId);
     }
 }

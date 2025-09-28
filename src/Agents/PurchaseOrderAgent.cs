@@ -1,29 +1,31 @@
-using common.Enums;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using SingleAgent.Contracts;
 using SingleAgent.Models;
 using SingleAgent.Models.DTO;
+using SingleAgent.Models.Enums;
 using SingleAgent.Prompting;
 
 // State store interface
 using SingleAgent.Storage.Contract;
+using SingleAgent.Telemetry;
+using System.Diagnostics;
 using System.Text.Json;
 
-namespace SingleAgent.Agents // Namespace for agent classes
+namespace SingleAgent.Agents
 {
-    // Define the IInvoiceAgent interface if it does not exist elsewhere
     public class PurchaseOrderAgent : IPurchaseOrderAgent// Main agent class
     {
         private readonly Kernel _kernel; // Semantic Kernel instance for AI operations
         private readonly ILogger<PurchaseOrderAgent> _logger; // Logger for this agent
         private readonly IStateStore _stateStore; // Stores per-session/user state
+        private readonly TelemetryCollector _telemetryCollector;
+        private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly JsonSerializerOptions _jsonOptions;
         private readonly IConfiguration _configuration;
         private readonly int _temperature;
-        private List<MessageThreadModel> messageThreads = new List<MessageThreadModel>();
-
+        private Stopwatch _stopwatch;
         private const string TracePrefix = "*** CUSTOM:"; // add prefix to custom trace messages for easy identification 
 
         /// <architecture = "Workflow">
@@ -37,13 +39,17 @@ namespace SingleAgent.Agents // Namespace for agent classes
         public PurchaseOrderAgent(ILogger<PurchaseOrderAgent> logger,
                            Kernel kernel,
                            IStateStore stateStore,
-                           IConfiguration configuration
+                           IConfiguration configuration,
+                           IHttpContextAccessor httpContextAccessor,
+                           TelemetryCollector telemetryCollector
         )
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger), $"Thrown in {GetType().Name}"); // Ensure logger not null
             _kernel = kernel ?? throw new ArgumentNullException(nameof(kernel), $"Thrown in {GetType().Name}"); // Ensure kernel not null
             _stateStore = stateStore ?? throw new ArgumentNullException(nameof(stateStore), $"Thrown in {GetType().Name}"); // Ensure state store not null
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration), $"Thrown in {GetType().Name}"); // Ensure configuration not null
+            _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor), $"Thrown in {GetType().Name}");
+            _telemetryCollector = telemetryCollector ?? throw new ArgumentNullException(nameof(telemetryCollector), $"Thrown in {GetType().Name}");
 
             // if temperature not set in config, default to 1
             _temperature = _configuration.GetValue<int?>("inference-temperature") ?? 1;
@@ -53,18 +59,31 @@ namespace SingleAgent.Agents // Namespace for agent classes
                 WriteIndented = true,
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             };
+
+            if (_httpContextAccessor.HttpContext != null)
+            {
+                _httpContextAccessor.HttpContext.Items["TelemetryCollector"] = _telemetryCollector;
+            }
         }
 
-        public async Task<(string completion, ResponseInformationDto responseInformationDto)> ProcessUserRequestAsync(
+        /// <architecture = "Workflow">
+        /// 1) NO HARDCODING in orchestration code. Keep workflow state in the system prompt - let it guide the model.
+        ///    Let model choose next steps based on context and tools available
+        /// 2) Single source of truth: ChatHistory
+        /// 3) Track state naturally through chat history
+        /// </architecture>
+
+        public async Task<AgentResponseDto> ProcessUserRequestAsync(
             string userInput,
-            string sessionId,
-            TelemetryCollector telemetryCollector)
+            string sessionId)
         {
             try
             {
-                _logger.LogInformation("{TracePrefix} Processing user request: {UserPrompt}", TracePrefix,userInput); // Log the user prompt
+                _logger.LogInformation("{TracePrefix} Logging user prompt for PO Request in Controller at top of agent: {UserPrompt}", TracePrefix,userInput); // Log the user prompt
 
-                                
+                // measure execution time
+                _stopwatch = Stopwatch.StartNew();
+
                 // 1. Full History Store (for audit/tracking)
                 var fullHistory = await _stateStore.GetChatHistoryAsync(sessionId) ?? new ChatHistory();
                                                
@@ -77,8 +96,8 @@ namespace SingleAgent.Agents // Namespace for agent classes
                 // 3. Add current input to full history
                 fullHistory.AddUserMessage(userInput);
 
-                messageThreads.Add(new MessageThreadModel(Role.System, PurchaseOrderPrompts.SystemPrompt(), 0));
-                messageThreads.Add(new MessageThreadModel(Role.User, userInput, 0));
+                //messageThreads.Add(new MessageThreadModel(Role.System, PurchaseOrderPrompts.SystemPrompt(), 0));
+                //messageThreads.Add(new MessageThreadModel(Role.User, userInput, 0));
 
                 // 4. Let ContextPruningService build model context
                 //var modelContext = _contextPruningService.BuildModelContext(fullHistory);
@@ -87,13 +106,7 @@ namespace SingleAgent.Agents // Namespace for agent classes
                 ////    Encapsulate in OpenAI ChatHistory object
                 ////    
                 //var modelContext = new ChatHistory();
-
-                /// <architecture = "Workflow">
-                /// 1) NO HARDCODING in orchestration code. Keep workflow state in the system prompt - let it guide the model.
-                ///    Let model choose next steps based on context and tools available
-                /// 2) Single source of truth: ChatHistory
-                /// 3) Track state naturally through chat history
-                /// </architecture>
+                               
 
                 //// Always start fresh with system prompt
                 //modelContext.AddSystemMessage(PurchaseOrderPrompts.SystemPrompt());
@@ -130,34 +143,6 @@ namespace SingleAgent.Agents // Namespace for agent classes
                 var outputTokens = (innerContent != null) ? innerContent.Usage.OutputTokenCount : 0;
                 var reasoningTokens = (innerContent != null) ? innerContent.Usage.OutputTokenDetails.ReasoningTokenCount : 0;
 
-                var responseInformationDto = new ResponseInformationDto(inputTokens, outputTokens, reasoningTokens);
-
-                ////if (result.Metadata.TryGetValue("Usage", out var usage) && usage is OpenAIUsage u)
-                ////{
-                ////    promptTokens = u.PromptTokens;
-                ////    completionTokens = u.CompletionTokens;
-                ////    totalTokens = u.TotalTokens;
-                ////}
-
-                //var response = result.Content[0];
-
-                //int inputTokens = 0, outputTokens = 0, totalTokens = 0;
-
-                //if (result.Metadata is { } meta &&
-                //    meta.TryGetValue("Usage", out var usageObj) &&
-                //    usageObj is ChatTokenUsage usage)
-                //{
-                //    inputTokens = usage.InputTokenCount;
-                //    outputTokens = usage.OutputTokenCount;
-                //    totalTokens = usage.TotalTokenCount;
-                //}
-                //else
-
-                //messageThreads.Add(new MessageThreadModel(Role.Assistant, result.Content, TotalTokens));
-
-                //_logger.LogInformation("Tokens in={In} out={Out} total={Total}", inputTokens, outputTokens, totalTokens);
-                //_logger.LogInformation("Tokens prompt={P} completion={C} total={T}", prompt, completion, total);
-
                 // Save assistant response and history
                 fullHistory.AddAssistantMessage(result.Content);
 
@@ -166,7 +151,30 @@ namespace SingleAgent.Agents // Namespace for agent classes
 
                 _logger.LogInformation("{TracePrefix} Model final response: {Response}", TracePrefix, result.Content);
 
-                return (result.Content, responseInformationDto);
+                // Trace details for debugging
+                var traceDetail = new TraceDetail
+                {
+                    FormattedOutput = _telemetryCollector.GetFormattedFunctionDebugOutput()
+                };
+
+                // Capture Execution Time
+                _stopwatch.Stop();
+                var executionTime = (int)_stopwatch.Elapsed.TotalSeconds;
+
+                var agentResponseDto = new AgentResponseDto
+                (
+                    executionTime,
+                    Role.Assistant,
+                    result.Content,
+                    inputTokens,
+                    outputTokens,
+                    reasoningTokens,
+                    new List<ToolStepSummaryModel>(),
+                    traceDetail
+                );
+
+
+                return (agentResponseDto);
             }
             catch (Exception ex)
             {

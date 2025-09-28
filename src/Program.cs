@@ -6,7 +6,6 @@ using Microsoft.SemanticKernel;
 using SingleAgent.Agents;
 using SingleAgent.Context;
 using SingleAgent.Contracts;
-using SingleAgent.Models;
 using SingleAgent.Plubming;
 using SingleAgent.Plumbing;
 using SingleAgent.State;
@@ -305,7 +304,7 @@ try
     kernelBuilder.Services.AddScoped<IProductRepository, InMemoryProductRepository>();
 
     builder.Services.AddScoped<ContextPruningService>();
-    builder.Services.AddScoped<PurchaseStateReconstructor>();
+    //builder.Services.AddScoped<PurchaseStateReconstructor>();
  
     var kernel = kernelBuilder.Build();
 

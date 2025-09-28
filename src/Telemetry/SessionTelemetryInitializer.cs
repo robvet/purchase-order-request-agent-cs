@@ -2,7 +2,7 @@
 using Microsoft.ApplicationInsights.Channel;
 using Microsoft.ApplicationInsights.Extensibility;
 
-namespace SingleAgent.Plubming
+namespace SingleAgent.Telemetry
 {
     internal class SessionTelemetryInitializer : ITelemetryInitializer
     {

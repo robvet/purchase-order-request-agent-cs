@@ -1,6 +1,6 @@
 ﻿using System.Text.Json;
 
-namespace SingleAgent.Models
+namespace SingleAgent.Telemetry
 {
     // TelemetryCollector: stores telemetry for the current request
     public class TelemetryCollector

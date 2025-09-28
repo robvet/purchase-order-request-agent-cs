@@ -1,13 +1,7 @@
-﻿using Microsoft.ApplicationInsights;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Abstractions;
+﻿using Microsoft.AspNetCore.Mvc;
 using SingleAgent.Contracts;
-using SingleAgent.Models;
-using System.Diagnostics;
 using SingleAgent.Models.DTO;
-using System.Text.Json;
-using System.Text.Json.Nodes;
-using SingleAgent.Models.Enums;
+using SingleAgent.Telemetry;
 
 namespace SingleAgent.Controllers
 {
@@ -18,32 +12,17 @@ namespace SingleAgent.Controllers
     {
         private readonly IPurchaseOrderAgent _purchaseOrderAgent;
         private readonly ILogger<PurchaseOrderRequestController> _logger;
-        private readonly TelemetryCollector _telemetryCollector;
-        //private readonly TelemetryClient _telemetryClient;
         private const string TracePrefix = "*** CUSTOM:"; // add prefix to custom trace messages for easy identification 
-
-        // IHttpContextAccessor is used to access the current HTTP context, allowing us to set cookies
         private readonly IHttpContextAccessor _httpContextAccessor;
 
         public PurchaseOrderRequestController(ILogger<PurchaseOrderRequestController> logger,
                                      IPurchaseOrderAgent purchaseOrderAgent,
-                                     TelemetryCollector telemetryCollector,
-                                     IHttpContextAccessor httpContextAccessor)
+                                     IHttpContextAccessor httpContextAccessor,
+                                     TelemetryCollector telemetryCollector)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger), $"Thrown in {GetType().Name}");
-
-            
-
             _purchaseOrderAgent = purchaseOrderAgent ?? throw new ArgumentNullException(nameof(purchaseOrderAgent), $"Thrown in {GetType().Name}");
-            _telemetryCollector = telemetryCollector ?? throw new ArgumentNullException(nameof(telemetryCollector), $"Thrown in {GetType().Name}");
             _httpContextAccessor = httpContextAccessor ?? throw new ArgumentNullException(nameof(httpContextAccessor), $"Thrown in {GetType().Name}");
-
-            //_telemetryClient = telemetryClient ?? throw new ArgumentNullException(nameof(telemetryClient), $"Thrown in {GetType().Name}");
-
-            if (_httpContextAccessor.HttpContext != null)
-            {
-                _httpContextAccessor.HttpContext.Items["TelemetryCollector"] = telemetryCollector;
-            }
         }
 
         [HttpPost("ProcessPurchaseRequest")]
@@ -52,19 +31,12 @@ namespace SingleAgent.Controllers
         {
             try
             {
-                // Start stopwatch
-                var sw = Stopwatch.StartNew();
-
-
                 // Extra Credit
                 var userAgent = Request.Headers["User-Agent"].ToString();
                 var correlationId = _httpContextAccessor.HttpContext.TraceIdentifier;
 
-
-
-
-                _logger.LogInformation("{TracePrefix} Logging user prompt for PO Request: {UserPrompt}", TracePrefix, userInputPrompt);
-
+                
+                
                 // validate input
                 if (string.IsNullOrWhiteSpace(userInputPrompt))
                 {
@@ -73,47 +45,17 @@ namespace SingleAgent.Controllers
                 }
 
                 userInputPrompt = userInputPrompt.Trim();
+                _logger.LogInformation("{TracePrefix} Logging user prompt for PO Request in Controller: {UserPrompt}", TracePrefix, userInputPrompt);
 
                 // create unique sessionId for tracking history across turns
                 string sessionId = Request.Cookies["SessionId"] ?? Guid.NewGuid().ToString();
 
-                //_telemetryClient.Context.Session.Id = sessionId;
-
-                var (completion, responseInformationDto) = await _purchaseOrderAgent.ProcessUserRequestAsync(userInputPrompt, sessionId, _telemetryCollector);
-
-                var traceDetail = new TraceDetail
-                {
-                    FormattedOutput = _telemetryCollector.GetFormattedFunctionDebugOutput()
-                };
+                AgentResponseDto agentResponseDto = await _purchaseOrderAgent.ProcessUserRequestAsync(userInputPrompt, sessionId);
 
                 Response.Cookies.Append("SessionId", sessionId, new CookieOptions { HttpOnly = true, SameSite = SameSiteMode.Lax });
 
-                //var toolSteps = InjectDynamicTelemetryTransformation(_telemetryCollector.GetAll().ToList());
-
-                //return Ok(new AgentResponseDto
-                //{ 
-                //    UserPrompt = userInputPrompt,
-                //    Completion = completion,
-                //    TraceDetail = traceDetail,
-                //    MessageThreads = messageThreadModel,
-                //    // Traces = ChatHistoryMappingExtensions.MapToDto(history), // Uncomment if you want traces
-                //    // ChatMessageDtos = ChatHistoryMappingExtensions.MapToDto(history) // I
-                //});
-
-                sw.Stop();
-                var elapsedSeconds = (int)sw.Elapsed.TotalSeconds;
-
-                return Ok(new AgentResponseDto
-                (
-                    elapsedSeconds,
-                    Role.Assistant,
-                    completion,
-                    responseInformationDto.InputTokens,
-                    responseInformationDto.OutputTokens,
-                    responseInformationDto.ReasoningTokens,
-                    new List<ToolStepSummaryModel>(), // toolSteps,
-                    traceDetail
-                ));
+                return Ok(agentResponseDto);
+                
             }
             catch (Exception ex)
             {
@@ -137,137 +79,140 @@ namespace SingleAgent.Controllers
         /// while the controller handles custom business logic. Moreover, the pattern enables future custom 
         /// formatting without requiring changes to the underlying filtering logic.
         /// </summary>
-        private List<ToolStepSummaryModel> InjectDynamicTelemetryTransformation(List<string> telemetryEntries)
-        {
-            var toolSteps = new List<ToolStepSummaryModel>();
+       
+        
+        
+        //private List<ToolStepSummaryModel> InjectDynamicTelemetryTransformation(List<string> telemetryEntries)
+        //{
+        //    var toolSteps = new List<ToolStepSummaryModel>();
 
-            try
-            {
-                var currentStep = new ToolStepSummaryModel();
-                var hasActiveStep = false;
-                var parentToolName = string.Empty; // Track parent tool name for nested calls
+        //    try
+        //    {
+        //        var currentStep = new ToolStepSummaryModel();
+        //        var hasActiveStep = false;
+        //        var parentToolName = string.Empty; // Track parent tool name for nested calls
 
-                foreach (var entry in telemetryEntries)
-                {
-                    // Identity tool calls 
-                    if (entry.StartsWith("[TOOL_CALL]"))
-                    {
-                        // Parse the tool name from the JSON
-                        string toolName = "";
-                        try
-                        {
-                            // If a tool call, store the tool name as the parent so that we can merge nested calls
-                            var jsonPart = entry.Substring("[TOOL_CALL]".Length).Trim();
-                            var toolCallData = JsonSerializer.Deserialize<JsonElement>(jsonPart);
+        //        foreach (var entry in telemetryEntries)
+        //        {
+        //            // Identity tool calls 
+        //            if (entry.StartsWith("[TOOL_CALL]"))
+        //            {
+        //                // Parse the tool name from the JSON
+        //                string toolName = "";
+        //                try
+        //                {
+        //                    // If a tool call, store the tool name as the parent so that we can merge nested calls
+        //                    var jsonPart = entry.Substring("[TOOL_CALL]".Length).Trim();
+        //                    var toolCallData = JsonSerializer.Deserialize<JsonElement>(jsonPart);
 
-                            if (toolCallData.TryGetProperty("ToolName", out var toolNameElement))
-                            {
-                                var fullToolName = toolNameElement.GetString() ?? "";
-                                // Extract just the tool name (e.g., "ClassifyRequest" from "ClassifyRequestTool.ClassifyRequest")
-                                var parts = fullToolName.Split('.');
-                                toolName = parts.Length > 1 ? parts[1] : fullToolName;
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "{TracePrefix} Failed to parse tool call JSON", TracePrefix);
-                            toolName = "Unknown Tool";
-                        }
+        //                    if (toolCallData.TryGetProperty("ToolName", out var toolNameElement))
+        //                    {
+        //                        var fullToolName = toolNameElement.GetString() ?? "";
+        //                        // Extract just the tool name (e.g., "ClassifyRequest" from "ClassifyRequestTool.ClassifyRequest")
+        //                        var parts = fullToolName.Split('.');
+        //                        toolName = parts.Length > 1 ? parts[1] : fullToolName;
+        //                    }
+        //                }
+        //                catch (Exception ex)
+        //                {
+        //                    _logger.LogWarning(ex, "{TracePrefix} Failed to parse tool call JSON", TracePrefix);
+        //                    toolName = "Unknown Tool";
+        //                }
 
-                        // Each Semantic Kernel internally calls kernel.InvokePromptAsync(), creating a nested function call.
-                        // The telemetry filter captures both calls resulting into two distinct entries:
-                        //  • Parent: ClassifyRequestTool.ClassifyRequest(empty results)
-                        //  • Child: InvokePromptAsync_de60780b7c1b45259ac38332998647a2(actual results)
+        //                // Each Semantic Kernel internally calls kernel.InvokePromptAsync(), creating a nested function call.
+        //                // The telemetry filter captures both calls resulting into two distinct entries:
+        //                //  • Parent: ClassifyRequestTool.ClassifyRequest(empty results)
+        //                //  • Child: InvokePromptAsync_de60780b7c1b45259ac38332998647a2(actual results)
 
 
 
-                        // Check if this is an internal InvokePromptAsync call
-                        // When we see an InvokePromptAsync_ call, we recognize it as a nested call
-                        if (toolName.StartsWith("InvokePromptAsync_"))
-                        {
-                            // This is a nested call - don't create a new step, just update the current one
-                            // Instead of creating a new step, we keep the current step but ensure it uses the parent's name
-                            // The parent call provides the friendly tool name
-                            if (hasActiveStep && !string.IsNullOrEmpty(parentToolName))
-                            {
-                                // Keep the parent tool name, but this nested call will provide the results
-                                currentStep.ToolName = parentToolName;
-                            }
-                            else
-                            {
-                                // No parent context, treat as unknown
-                                currentStep.ToolName = "Unknown Tool";
-                                hasActiveStep = true;
-                            }
-                        }
-                        else
-                        {
-                            // This is a real tool call
+        //                // Check if this is an internal InvokePromptAsync call
+        //                // When we see an InvokePromptAsync_ call, we recognize it as a nested call
+        //                if (toolName.StartsWith("InvokePromptAsync_"))
+        //                {
+        //                    // This is a nested call - don't create a new step, just update the current one
+        //                    // Instead of creating a new step, we keep the current step but ensure it uses the parent's name
+        //                    // The parent call provides the friendly tool name
+        //                    if (hasActiveStep && !string.IsNullOrEmpty(parentToolName))
+        //                    {
+        //                        // Keep the parent tool name, but this nested call will provide the results
+        //                        currentStep.ToolName = parentToolName;
+        //                    }
+        //                    else
+        //                    {
+        //                        // No parent context, treat as unknown
+        //                        currentStep.ToolName = "Unknown Tool";
+        //                        hasActiveStep = true;
+        //                    }
+        //                }
+        //                else
+        //                {
+        //                    // This is a real tool call
 
-                            // If we have an active step, add it before starting a new one
-                            if (hasActiveStep)
-                            {
-                                toolSteps.Add(currentStep);
-                            }
+        //                    // If we have an active step, add it before starting a new one
+        //                    if (hasActiveStep)
+        //                    {
+        //                        toolSteps.Add(currentStep);
+        //                    }
 
-                            // Start a new step
-                            currentStep = new ToolStepSummaryModel();
-                            currentStep.ToolName = toolName;
-                            parentToolName = toolName; // Remember this for potential nested calls
-                            hasActiveStep = true;
-                        }
-                    }
-                    // Look for tool JSON results
-                    // The nested call (InvokePromptAsync_) provides the actual JSON result and agent response
-                    // Merge them into one clean entry
-                    else if (entry.StartsWith("[TOOL_JSON_RESULT]") && hasActiveStep)
-                    {
-                        try
-                        {
-                            // Extract the JSON part after the tool name
-                            var jsonPart = entry.Substring("[TOOL_JSON_RESULT]".Length).Trim();
-                            var colonIndex = jsonPart.IndexOf(':');
-                            if (colonIndex > 0)
-                            {
-                                currentStep.JsonResult = jsonPart.Substring(colonIndex + 1).Trim();
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "{TracePrefix} Failed to parse tool JSON result", TracePrefix);
-                        }
-                    }
-                    // Look for agent responses
-                    else if (entry.StartsWith("[AGENT_RESPONSE]") && hasActiveStep)
-                    {
-                        currentStep.AgentResponse = entry.Substring("[AGENT_RESPONSE]".Length).Trim();
+        //                    // Start a new step
+        //                    currentStep = new ToolStepSummaryModel();
+        //                    currentStep.ToolName = toolName;
+        //                    parentToolName = toolName; // Remember this for potential nested calls
+        //                    hasActiveStep = true;
+        //                }
+        //            }
+        //            // Look for tool JSON results
+        //            // The nested call (InvokePromptAsync_) provides the actual JSON result and agent response
+        //            // Merge them into one clean entry
+        //            else if (entry.StartsWith("[TOOL_JSON_RESULT]") && hasActiveStep)
+        //            {
+        //                try
+        //                {
+        //                    // Extract the JSON part after the tool name
+        //                    var jsonPart = entry.Substring("[TOOL_JSON_RESULT]".Length).Trim();
+        //                    var colonIndex = jsonPart.IndexOf(':');
+        //                    if (colonIndex > 0)
+        //                    {
+        //                        currentStep.JsonResult = jsonPart.Substring(colonIndex + 1).Trim();
+        //                    }
+        //                }
+        //                catch (Exception ex)
+        //                {
+        //                    _logger.LogWarning(ex, "{TracePrefix} Failed to parse tool JSON result", TracePrefix);
+        //                }
+        //            }
+        //            // Look for agent responses
+        //            else if (entry.StartsWith("[AGENT_RESPONSE]") && hasActiveStep)
+        //            {
+        //                currentStep.AgentResponse = entry.Substring("[AGENT_RESPONSE]".Length).Trim();
 
-                        // This completes the step
-                        toolSteps.Add(currentStep);
-                        hasActiveStep = false;
-                        parentToolName = string.Empty; // Reset parent context
-                    }
-                }
+        //                // This completes the step
+        //                toolSteps.Add(currentStep);
+        //                hasActiveStep = false;
+        //                parentToolName = string.Empty; // Reset parent context
+        //            }
+        //        }
 
-                // Add the last step if it exists
-                if (hasActiveStep)
-                {
-                    toolSteps.Add(currentStep);
-                }
+        //        // Add the last step if it exists
+        //        if (hasActiveStep)
+        //        {
+        //            toolSteps.Add(currentStep);
+        //        }
 
-                // Final cleanup: Remove any steps that are just InvokePromptAsync calls without proper parent context
-                toolSteps = toolSteps.Where(step =>
-                    !step.ToolName.StartsWith("InvokePromptAsync_") &&
-                    !string.IsNullOrEmpty(step.ToolName) &&
-                    step.ToolName != "Unknown Tool").ToList();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "{TracePrefix} Error parsing telemetry to tool steps", TracePrefix);
-            }
+        //        // Final cleanup: Remove any steps that are just InvokePromptAsync calls without proper parent context
+        //        toolSteps = toolSteps.Where(step =>
+        //            !step.ToolName.StartsWith("InvokePromptAsync_") &&
+        //            !string.IsNullOrEmpty(step.ToolName) &&
+        //            step.ToolName != "Unknown Tool").ToList();
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, "{TracePrefix} Error parsing telemetry to tool steps", TracePrefix);
+        //    }
 
-            return toolSteps;
-        }
+        //    return toolSteps;
+        //}
 
     }
 }
