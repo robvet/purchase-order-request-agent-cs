@@ -72,7 +72,6 @@ namespace SingleAgent.Agents
         /// 2) Single source of truth: ChatHistory
         /// 3) Track state naturally through chat history
         /// </architecture>
-
         public async Task<AgentResponseDto> ProcessUserRequestAsync(
             string userInput,
             string sessionId)
@@ -192,6 +191,15 @@ namespace SingleAgent.Agents
         }
     }
 }
+
+
+
+
+
+
+
+
+
 
 
 

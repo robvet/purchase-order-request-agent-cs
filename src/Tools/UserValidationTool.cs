@@ -1,20 +1,6 @@
-﻿using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Routing;
-using Microsoft.VisualBasic;
-using System.Collections.Generic;
-using System.Numerics;
-using System.Text.RegularExpressions;
-using static Azure.Core.HttpHeader;
-
-namespace SingleAgent.Tools
+﻿namespace SingleAgent.Tools
 {
-    using global::SingleAgent.Contracts;
-    using Microsoft.AspNetCore.Http.HttpResults;
-    using Microsoft.AspNetCore.Razor.TagHelpers;
-    using Microsoft.AspNetCore.Routing;
     using Microsoft.SemanticKernel;
-    using Microsoft.VisualBasic;
-    using Models.DTO;
     using System.Collections.Generic;
     using System.ComponentModel;
     using System.Text.Json;

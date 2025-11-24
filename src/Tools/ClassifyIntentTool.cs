@@ -21,8 +21,6 @@ namespace SingleAgent.Tools
     ///   Entities are not needed yet in this step—they should be extracted later in specialized tools
     /// </architecture>
 
-
-
     [Description("Classifies user requests for product procurement into one of: RequestProduct (order request), ShowAvailableProducts (list options), ShowProductSpecs (technical details), ShowComplianceRules (policy info), or IrrelevantInput (off-topic). Returns JSON with intent and confidence score (0.0-1.0).")]
     public class ClassifyIntentTool
     {
@@ -82,8 +80,6 @@ namespace SingleAgent.Tools
 
                 var confidence = json["confidence"]?.GetValue<double>()
                     ?? throw new JsonException("Confidence score missing from model response");
-
-
 
                 // After model call, before constructing response:
                 bool needsRetry = false;
@@ -230,7 +226,6 @@ Confidence: {confidence}";
                 return JsonSerializer.Serialize(error);
             }
         }
-
         private static class PromptTemplate
         {
             public static string IntentRouterPrompt(string userPromptInput)
